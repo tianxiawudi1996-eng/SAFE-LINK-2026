@@ -9,12 +9,12 @@ interface InitScreenProps {
 export default function InitScreen({ onActivate }: InitScreenProps) {
     return (
         <div className="fixed inset-0 z-[10000] bg-black flex flex-col items-center justify-center p-10 text-center">
-            <div className="mb-14 relative">
+            <div className="mb-20 relative">
                 <motion.div
                     initial={{ scale: 0.8, opacity: 0 }}
                     animate={{ scale: 1, opacity: 1 }}
                     transition={{ duration: 0.8, ease: "easeOut" }}
-                    className="w-48 h-auto flex items-center justify-center mx-auto mb-8 relative z-10"
+                    className="w-96 h-auto flex items-center justify-center mx-auto mb-12 relative z-10"
                 >
                     {/* Official Seowon Logo */}
                     <img
@@ -25,7 +25,7 @@ export default function InitScreen({ onActivate }: InitScreenProps) {
                 </motion.div>
 
                 {/* Ping Effect - Adjusted for rectangular logo */}
-                <div className="absolute inset-x-0 top-1/2 -translate-y-1/2 h-24 rounded-full border-2 border-sw-orange/30 animate-[ping_2.5s_ease-in-out_infinite] opacity-20 blur-md"></div>
+                <div className="absolute inset-x-0 top-1/2 -translate-y-1/2 h-48 rounded-full border-2 border-sw-orange/30 animate-[ping_2.5s_ease-in-out_infinite] opacity-20 blur-md"></div>
             </div>
 
             <motion.div
@@ -33,10 +33,10 @@ export default function InitScreen({ onActivate }: InitScreenProps) {
                 animate={{ y: 0, opacity: 1 }}
                 transition={{ delay: 0.3 }}
             >
-                <h1 className="text-4xl font-black text-white tracking-tighter uppercase mb-2">
+                <h1 className="text-7xl font-black text-white tracking-tighter uppercase mb-4">
                     <span className="text-sw-orange">SAFE</span>-LINK
                 </h1>
-                <p className="text-zinc-500 text-sm leading-relaxed font-medium italic">
+                <p className="text-zinc-500 text-base leading-relaxed font-medium italic">
                     "서원토건의 안전을 위한 무중력 소통 엔진 가동"
                 </p>
             </motion.div>

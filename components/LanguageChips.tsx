@@ -16,7 +16,7 @@ export default function LanguageChips({ currentLang, onSelectLang }: LanguageChi
     return (
         <div
             ref={containerRef}
-            className="bg-zinc-900/60 p-3 border-b border-white/5 overflow-x-auto flex gap-2 no-scrollbar z-40 h-[65px] shrink-0 items-center"
+            className="bg-zinc-950/50 backdrop-blur-sm px-4 py-2 border-b border-white/5 overflow-x-auto flex gap-1.5 no-scrollbar z-40 h-[46px] shrink-0 items-center"
         >
             {LANGUAGES.map((lang) => (
                 <motion.button
@@ -24,19 +24,14 @@ export default function LanguageChips({ currentLang, onSelectLang }: LanguageChi
                     onClick={() => onSelectLang(lang.code)}
                     whileTap={{ scale: 0.95 }}
                     className={cn(
-                        "flex-shrink-0 bg-sw-card border-1.5 rounded-xl px-3.5 py-2.5 flex items-center gap-1.5 transition-all duration-200",
+                        "flex-shrink-0 rounded-lg px-2.5 py-1.5 flex items-center gap-1 transition-all text-[10px] font-bold",
                         currentLang === lang.code
-                            ? "border-sw-cyan bg-cyan-950/20 shadow-[0_0_15px_rgba(0,229,255,0.15)]"
-                            : "border-white/5 hover:border-white/10"
+                            ? "bg-orange-500/20 text-orange-400 border border-orange-500/30"
+                            : "bg-zinc-800/50 text-zinc-500 border border-transparent hover:border-white/10 hover:text-zinc-300"
                     )}
                 >
-                    <span className="text-lg">{lang.flag}</span>
-                    <span className={cn(
-                        "text-[10px] font-black uppercase",
-                        currentLang === lang.code ? "text-cyan-400" : "text-zinc-400"
-                    )}>
-                        {lang.label}
-                    </span>
+                    <span className="text-sm">{lang.flag}</span>
+                    <span>{lang.code.split('-')[0].toUpperCase()}</span>
                 </motion.button>
             ))}
         </div>

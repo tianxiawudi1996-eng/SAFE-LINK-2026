@@ -1,0 +1,103 @@
+// Prisma schema - SAFE-LINK 통합 시스템
+// Supabase PostgreSQL
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+// ============================================
+// 사용자 관리 (User Management)
+// ============================================
+
+model User {
+  id          String   @id @default(cuid())
+  email       String   @unique
+  password    String
+  name        String
+  role        String   @default("worker")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  managerProfile  ManagerProfile?
+  workerProfile   WorkerProfile?
+  sessions        UserSession[]
+}
+
+model ManagerProfile {
+  id          String   @id @default(cuid())
+  userId      String   @unique
+  department  String?
+  position    String?
+  phone       String?
+  
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model WorkerProfile {
+  id          String   @id @default(cuid())
+  userId      String   @unique
+  country     String
+  language    String
+  phone       String?
+  
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tbmSignatures TbmSignature[]
+}
+
+model UserSession {
+  id          String   @id @default(cuid())
+  userId      String
+  token       String   @unique
+  expiresAt   DateTime
+  createdAt   DateTime @default(now())
+
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+// ============================================
+// TBM 전자서명 시스템
+// ============================================
+
+model TbmSession {
+  id          String   @id @default(cuid())
+  instruction String
+  createdAt   DateTime @default(now())
+  signatures  TbmSignature[]
+}
+
+model TbmSignature {
+  id            String   @id @default(cuid())
+  tbmId         String
+  workerName    String
+  signatureData String
+  timestamp     DateTime @default(now())
+  
+  workerId      String?
+  worker        WorkerProfile? @relation(fields: [workerId], references: [id])
+  session       TbmSession @relation(fields: [tbmId], references: [id])
+}
+
+// ============================================
+// 양방향 통역 메시지 시스템
+// ============================================
+
+model WorkerMessage {
+  id              String   @id @default(cuid())
+  workerName      String
+  workerCountry   String
+  workerLanguage  String
+  
+  originalText    String   // 원본 메시지 (근로자 언어)
+  translatedText  String   // 번역된 메시지 (한국어)
+  
+  isRead          Boolean  @default(false)
+  isUrgent        Boolean  @default(false)
+  
+  createdAt       DateTime @default(now())
+}

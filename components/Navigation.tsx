@@ -1,7 +1,7 @@
 "use client";
 
 import { cn } from "@/lib/utils";
-import { MessageCircle, Globe, Book } from "lucide-react";
+import { MessageCircle, Monitor, Book } from "lucide-react";
 
 interface NavigationProps {
     activeTab: string;
@@ -10,24 +10,38 @@ interface NavigationProps {
 
 export default function Navigation({ activeTab, onTabChange }: NavigationProps) {
     const items = [
-        { id: 'chat', label: '통역센터', icon: <MessageCircle size={24} /> },
-        { id: 'sites', label: '현장관리', icon: <Globe size={24} /> },
-        { id: 'glossary', label: '용어사전', icon: <Book size={24} /> },
+        { id: 'chat', label: '통역', icon: <MessageCircle size={20} /> },
+        { id: 'control', label: '관제', icon: <Monitor size={20} /> },
+        { id: 'glossary', label: '용어', icon: <Book size={20} /> },
     ];
 
     return (
-        <nav className="h-[75px] bg-[#0D0D0E] border-t border-white/10 flex justify-around items-center pb-safe box-border select-none z-50 shrink-0">
+        <nav className="h-[70px] bg-gradient-to-t from-black via-zinc-950 to-zinc-900/80 backdrop-blur-xl border-t border-white/5 flex justify-around items-center pb-safe select-none z-50 shrink-0">
             {items.map((item) => (
                 <button
                     key={item.id}
                     onClick={() => onTabChange(item.id)}
                     className={cn(
-                        "flex flex-col items-center gap-1 w-full h-full justify-center transition-colors active:scale-95",
-                        activeTab === item.id ? "text-sw-orange" : "text-zinc-500 hover:text-zinc-300"
+                        "flex flex-col items-center gap-1 w-full h-full justify-center transition-all active:scale-95",
+                        activeTab === item.id
+                            ? "text-orange-400"
+                            : "text-zinc-600 hover:text-zinc-400"
                     )}
                 >
-                    {item.icon}
-                    <span className="text-[10px] font-bold">{item.label}</span>
+                    <div className={cn(
+                        "w-10 h-10 rounded-xl flex items-center justify-center transition-all",
+                        activeTab === item.id
+                            ? "bg-orange-500/20 shadow-lg shadow-orange-500/10"
+                            : "bg-transparent"
+                    )}>
+                        {item.icon}
+                    </div>
+                    <span className={cn(
+                        "text-[9px] font-bold transition-all",
+                        activeTab === item.id ? "opacity-100" : "opacity-60"
+                    )}>
+                        {item.label}
+                    </span>
                 </button>
             ))}
         </nav>
