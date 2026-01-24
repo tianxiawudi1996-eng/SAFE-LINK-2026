@@ -39,3 +39,12 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+.vercel
+
+/lib/generated/prisma
+
+.env*.local
+
+# Agentic Architecture
+.tmp/
