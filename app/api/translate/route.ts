@@ -151,3 +151,24 @@ Context:
         }, { status: 500 });
     }
 }
+
+function getFewShotHistory(targetLang: string): any[] {
+    // Simple few-shot examples to guide the model style
+    // Constructing 'Content' objects for history
+    const commonExamples = [
+        {
+            role: "user",
+            parts: [{
+                text: `Role: Construction Site Interpreter.
+Target Language: ${targetLang}
+Task: Translate.
+Input: "안전모 착용하세요"` }]
+        },
+        {
+            role: "model",
+            parts: [{ text: `{ "translation": "Please wear your hard hat.", "verification": "안전모 착용 요청" }` }] // This is just a dummy example, actual lang will vary.
+        }
+    ];
+    return []; // Return empty for now as rigid few-shot might confuse if lang doesn't match. 
+    // Better to rely on System Instruction in the prompt for this dynamic language support.
+}
