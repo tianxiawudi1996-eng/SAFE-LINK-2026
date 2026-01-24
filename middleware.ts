@@ -4,66 +4,82 @@ import type { NextRequest } from 'next/server';
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
-  // 1. [예외 처리] 정적 리소스, API(auth 제외), 로그인 페이지 등은 제외
+  // 1. [Skip] Static resources, APIs (except possibly specific secure ones if needed), etc.
   if (
     pathname.startsWith('/_next') ||
     pathname.startsWith('/api') ||
-    pathname.startsWith('/login') ||
-    pathname.startsWith('/signup') ||
     pathname === '/favicon.ico' ||
-    // 퍼블릭 이미지 등
-    pathname.endsWith('.png') ||
-    pathname.endsWith('.jpg')
+    pathname.match(/\.(png|jpg|jpeg|gif|svg)$/)
   ) {
     return NextResponse.next();
   }
 
-  // 2. 인증 토큰 및 역할 확인
+  // 2. Check Auth Token and Role
   const authToken = request.cookies.get('auth_token')?.value;
-  const userRole = request.cookies.get('user_role')?.value;
+  const userRole = request.cookies.get('user_role')?.value; // Note: Cookie is not tamper-proof securily, but acceptable for MVP routing.
 
-  // 3. 로그인이 필요한 페이지인데 토큰이 없는 경우 -> 로그인 페이지로
-  if (!authToken) {
-    // 보호된 경로에 접근하려고 할 때만 리다이렉트
-    if (
-      pathname.startsWith('/dashboard') ||
-      pathname.startsWith('/tbm') ||
-      pathname.startsWith('/chat')
-    ) {
-      return NextResponse.redirect(new URL('/login', request.url));
+  // 3. Handling Auth Pages (Login/Signup)
+  const isAuthPage = pathname.startsWith('/login') || pathname.startsWith('/signup');
+
+  if (isAuthPage) {
+    // If user is ALREADY logged in, redirect to their dashboard
+    if (authToken) {
+      if (userRole === 'manager') {
+        return NextResponse.redirect(new URL('/dashboard', request.url));
+      } else if (userRole === 'worker') {
+        return NextResponse.redirect(new URL('/tbm', request.url)); // Worker Dashboard
+      }
+      // If role is invalid/missing but token exists, maybe let them login again or go home
+      return NextResponse.next();
     }
-    // 루트 페이지('/')는 통역 모드(공용)일 수 있으므로 허용할 수도 있지만,
-    // 현재 기획상 루트가 통역 메인이면 허용, 아니면 로그인으로 보냄
-    // 여기서는 일단 통과시킴 (Page 내부에서 처리 or Public)
+    // If not logged in, allow access to login/signup
     return NextResponse.next();
   }
 
-  // 4. 권한 기반 접근 제어
+  // 4. Protected Routes
+  const isProtectedPath =
+    pathname.startsWith('/dashboard') ||
+    pathname.startsWith('/tbm') ||
+    pathname.startsWith('/chat');
 
-  // (1) 관리자 전용 구역 (/dashboard)
-  if (pathname.startsWith('/dashboard')) {
-    if (userRole !== 'manager') {
-      // 권한 없음: 근로자 메인으로 보내거나 에러 페이지
-      // 여기서는 본인의 역할에 맞는 페이지로 리다이렉트
-      if (userRole === 'worker') {
+  if (isProtectedPath) {
+    // If NOT logged in, redirect to Login
+    if (!authToken) {
+      const loginUrl = new URL('/login', request.url);
+      // Optional: Add ?next=pathname to redirect back after login
+      return NextResponse.redirect(loginUrl);
+    }
+
+    // Role-Based Access Control
+    if (pathname.startsWith('/dashboard')) {
+      // Manager Only
+      if (userRole !== 'manager') {
+        // If worker tries to access dashboard, send to TBM
         return NextResponse.redirect(new URL('/tbm', request.url));
       }
-      return NextResponse.redirect(new URL('/login', request.url));
+    }
+
+    if (pathname.startsWith('/tbm') || pathname.startsWith('/chat')) {
+      // Worker Area (Managers can access too? For now, let's allow managers or restrict)
+      // If strict worker only:
+      /*
+      if (userRole !== 'worker' && userRole !== 'manager') {
+         return NextResponse.redirect(new URL('/login', request.url));
+      }
+      */
     }
   }
 
-  // (2) 근로자 전용 구역 (/tbm, /chat)
-  // 관리자가 근로자 페이지를 볼 필요가 있다면 허용, 아니라면 차단.
-  // 보통 관리자는 모니터링이 주 목적이므로 Dashboard에 머묾.
-  if (pathname.startsWith('/tbm') || pathname.startsWith('/chat')) {
-    // 관리자가 근로자 뷰를 테스트할 수도 있으므로 일단은 '로그인만 되어있으면' 허용하거나,
-    // 엄격하게 막으려면 아래 주석 해제
-    /*
-    if (userRole !== 'worker') {
-       return NextResponse.redirect(new URL('/dashboard', request.url));
-    }
-    */
+  // 5. Root Path ('/')
+  // If we want root to auto-redirect based on role:
+  /*
+  if (pathname === '/') {
+     if (authToken) {
+        if (userRole === 'manager') return NextResponse.redirect(new URL('/dashboard', request.url));
+        if (userRole === 'worker') return NextResponse.redirect(new URL('/tbm', request.url));
+     }
   }
+  */
 
   return NextResponse.next();
 }
