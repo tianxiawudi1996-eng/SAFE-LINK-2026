@@ -1,551 +1,479 @@
 "use client";
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { cn } from '@/lib/utils';
-import { Loader2 } from 'lucide-react';
+import {
+    Loader2, Send, Volume2, PlayCircle, Clock, CheckCircle2, Wifi, WifiOff
+} from 'lucide-react';
+import { useSearchParams } from 'next/navigation';
+import { SUPPORTED_LANGUAGES, normalizeLanguageCode, getLanguageData } from '@/lib/i18n';
 
-// Props based on usage in app/page.tsx
 interface ChatPageProps {
-    currentLang: string;
-    langLabel: string;
-    quickBroadcast: string;
-    onQuickBroadcastDone: () => void;
-    voiceGender: 'male' | 'female';
-    onVoiceGenderChange: (gender: 'male' | 'female') => void;
-    lastManagerKR: string;
-    onLastManagerText: (text: string) => void;
-    reBroadcastTrigger: number;
+    currentLang?: string;
+    langLabel?: string;
+    voiceGender?: 'male' | 'female';
+    mode?: 'interpretation' | 'private';
+    onLastManagerText?: (text: string) => void;
+    quickBroadcast?: string;
+    onQuickBroadcastDone?: () => void;
+    reBroadcastTrigger?: number;
+    lastManagerKR?: string;
+    forcedWorkerName?: string;
+    onVoiceGenderChange?: (gender: 'male' | 'female') => void;
+    theme?: 'dark' | 'light';
 }
 
 interface Message {
-    id: number;
+    id: number | string;
     text: string;
     role: 'mgr' | 'wrk';
-    verification?: string; // Back-translation
+    translation?: string;
+    pronunciation?: string;
     timestamp: Date;
+    isOptimistic?: boolean;
+    workerLanguage?: string;
 }
 
 export default function ChatPage({
-    currentLang,
-    langLabel,
+    currentLang = 'VN',
+    langLabel = 'Vietnamese',
+    voiceGender = 'female',
+    mode = 'interpretation',
+    onLastManagerText,
     quickBroadcast,
     onQuickBroadcastDone,
-    voiceGender,
-    onVoiceGenderChange,
+    reBroadcastTrigger = 0,
     lastManagerKR,
-    onLastManagerText,
-    reBroadcastTrigger
+    forcedWorkerName,
+    onVoiceGenderChange,
+    theme = 'light',
 }: ChatPageProps) {
+    const searchParams = useSearchParams();
+    const forcedRole = searchParams.get('role') as 'manager' | 'worker' | null;
+
     const [messages, setMessages] = useState<Message[]>([]);
     const [isRecording, setIsRecording] = useState(false);
     const [recordingRole, setRecordingRole] = useState<'mgr' | 'wrk' | null>(null);
     const [transcript, setTranscript] = useState("");
-    const [timer, setTimer] = useState(0);
-    const [aiStatus, setAiStatus] = useState<'READY' | 'PROCESSING' | 'DELAYED'>('READY');
-    const [inputManagerText, setInputManagerText] = useState("");
-    const [lastSourceText, setLastSourceText] = useState(""); // Wonmun Preview
+    const [timerValue, setTimerValue] = useState(0);
+    const [inputText, setInputText] = useState("");
+    const [isUrgent, setIsUrgent] = useState(false);
+    const [isSyncActive, setIsSyncActive] = useState(true);
+    const [isTranslatingId, setIsTranslatingId] = useState<string | number | null>(null);
 
-    const recognitionRef = useRef<any>(null);
-    const timerIntervalRef = useRef<NodeJS.Timeout | null>(null);
+    const [viewerRole, setViewerRole] = useState<'manager' | 'worker'>('manager');
+    const [inputRole, setInputRole] = useState<'mgr' | 'wrk'>('mgr');
+    const [userName, setUserName] = useState("Loading...");
+    const [isMounted, setIsMounted] = useState(false);
+    const [isAudioEnabled, setIsAudioEnabled] = useState(false);
+    const [isLandscape, setIsLandscape] = useState(false);
+
     const chatContainerRef = useRef<HTMLDivElement>(null);
-    const audioContextRef = useRef<AudioContext | null>(null);
+    const wakeLockRef = useRef<any>(null);
+    const audioRef = useRef<HTMLAudioElement | null>(null);
+    const isSyncingRef = useRef(false);
+    const lastPlayedIdRef = useRef<string | number | null>(null);
 
-    // AudioContext 초기화 (사용자 상호작용 후 생성)
-    const getAudioContext = () => {
-        if (!audioContextRef.current) {
-            audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
+    // Initial Hydration & Role Setup
+    useEffect(() => {
+        setIsMounted(true);
+        const saved = localStorage.getItem('user');
+        let role: 'manager' | 'worker' = 'worker';
+        let name = "현장직원";
+
+        if (forcedRole === 'manager' || forcedRole === 'worker') {
+            role = forcedRole;
+            name = role === 'manager' ? '본부장' : '현장직원';
+        } else if (saved) {
+            try {
+                const u = JSON.parse(saved);
+                role = u.role === 'manager' ? 'manager' : 'worker';
+                name = u.name || (role === 'manager' ? '본부장' : '현장직원');
+            } catch (e) { }
         }
-        return audioContextRef.current;
-    };
+        setViewerRole(role);
+        setUserName(name);
+    }, [forcedRole]);
 
-    // PCM L16 오디오 재생 함수 (원본 HTML 코드와 동일)
-    const playPCM = (int16Array: Int16Array, sampleRate: number) => {
-        const audioContext = getAudioContext();
-        const float32Array = new Float32Array(int16Array.length);
-        for (let i = 0; i < int16Array.length; i++) {
-            float32Array[i] = int16Array[i] / 32768;
+    // 🛑 Field-First: WakeLock & Landscape Billboard Detector
+    useEffect(() => {
+        if (!isMounted) return;
+
+        const handleResize = () => {
+            const landscape = window.innerWidth > window.innerHeight && window.innerWidth < 1024;
+            setIsLandscape(landscape);
+        };
+        handleResize();
+        window.addEventListener('resize', handleResize);
+
+        const requestWakeLock = async () => {
+            if ('wakeLock' in navigator) {
+                try {
+                    wakeLockRef.current = await (navigator as any).wakeLock.request('screen');
+                } catch (err) { }
+            }
+        };
+        requestWakeLock();
+
+        return () => {
+            window.removeEventListener('resize', handleResize);
+            if (wakeLockRef.current) wakeLockRef.current.release();
+        };
+    }, [isMounted]);
+
+    // 🔊 MediaSession API (Field-First: 화면 잠금 시에도 오디오 제어 가능)
+    useEffect(() => {
+        if (!isMounted || typeof navigator === 'undefined') return;
+        if ('mediaSession' in navigator) {
+            navigator.mediaSession.metadata = new MediaMetadata({
+                title: 'SAFE-LINK 실시간 통역',
+                artist: '서원토건 안전관리',
+                album: '현장 안전 소통'
+            });
+            navigator.mediaSession.setActionHandler('play', () => {
+                if (audioRef.current) audioRef.current.play();
+            });
+            navigator.mediaSession.setActionHandler('pause', () => {
+                if (audioRef.current) audioRef.current.pause();
+            });
         }
-        const audioBuffer = audioContext.createBuffer(1, float32Array.length, sampleRate);
-        audioBuffer.copyToChannel(float32Array, 0);
-        const source = audioContext.createBufferSource();
-        source.buffer = audioBuffer;
-        source.connect(audioContext.destination);
-        source.start();
-    };
+    }, [isMounted]);
 
-    // Google Cloud TTS / Gemini TTS API 호출
-    const playGeminiTTS = async (text: string, langCode: string) => {
+    // 🔊 Audio Session Stabilization (Silent Loop trick to keep background audio alive)
+    useEffect(() => {
+        if (!isAudioEnabled) return;
+        const interval = setInterval(() => {
+            const silent = new Audio("data:audio/wav;base64,UklGRigAAABXQVZFRm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQQAAAAAAA==");
+            silent.volume = 0.01;
+            silent.play().catch(() => { });
+        }, 20000);
+        return () => clearInterval(interval);
+    }, [isAudioEnabled]);
+
+    // 🔊 TTS Playback Engine
+    const playTTS = useCallback(async (text: string, langCode: string) => {
+        if (!text || !isAudioEnabled) return;
         try {
-            const response = await fetch('/api/tts', {
+            const res = await fetch('/api/tts', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ text, langCode, gender: voiceGender })
+                body: JSON.stringify({ text, langCode, gender: voiceGender, emotion: isUrgent ? 'urgent' : undefined })
             });
-
-            const data = await response.json();
+            const data = await res.json();
 
             if (data.audioContent) {
-                // MP3 또는 PCM 오디오 재생
-                if (data.mimeType === 'audio/mp3') {
-                    // MP3 재생 (Google Cloud TTS)
-                    const audio = new Audio(`data:audio/mp3;base64,${data.audioContent}`);
-                    audio.play();
-                    console.log('✅ Neural2 TTS 재생:', data.voiceName);
-                } else {
-                    // PCM L16 재생 (Gemini TTS)
-                    const binaryString = atob(data.audioContent);
-                    const buffer = new Int16Array(binaryString.length / 2);
-                    for (let i = 0; i < buffer.length; i++) {
-                        buffer[i] = (binaryString.charCodeAt(i * 2) & 0xFF) | (binaryString.charCodeAt(i * 2 + 1) << 8);
-                    }
-                    playPCM(buffer, data.sampleRate || 24000);
-                    console.log('✅ TTS 재생 완료');
-                }
-            } else if (data.fallback) {
-                console.log('⚠️ 서버 TTS 실패, 브라우저 TTS 사용');
-                fallbackBrowserTTS(text, langCode);
+                if (audioRef.current) audioRef.current.pause();
+                const audio = new Audio(`data:audio/mp3;base64,${data.audioContent}`);
+                audioRef.current = audio;
+                if (isUrgent) audio.volume = 1.0;
+                audio.play().catch(e => console.warn("Playback blocked:", e));
             }
-        } catch (error) {
-            console.error('TTS 오류:', error);
-            fallbackBrowserTTS(text, langCode);
+        } catch (e) {
+            console.error("TTS Error:", e);
         }
-    };
+    }, [voiceGender, isUrgent, isAudioEnabled]);
 
-    // 브라우저 TTS (고품질 음성 우선 선택)
-    const fallbackBrowserTTS = (text: string, langCode: string) => {
-        if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
-            const u = new SpeechSynthesisUtterance(text);
-
-            // 언어 코드 매핑 (중국어는 표준어/북경어로)
-            const langMap: Record<string, string> = {
-                'zh-CN': 'cmn-CN',  // 표준 중국어 (Mandarin)
-                'zh': 'cmn-CN',
-            };
-            const mappedLang = langMap[langCode] || langCode;
-            u.lang = mappedLang;
-
-            const langPrefix = mappedLang.split('-')[0];
-            const voices = window.speechSynthesis.getVoices();
-
-            // 우선순위: Microsoft Neural > Google > Apple > 기타
-            const priorityKeywords = ['Neural', 'Online', 'Natural', 'Premium', 'Google'];
-
-            let bestVoice = null;
-
-            // 중국어는 'Xiaoxiao', 'Yunyang' 등 표준 중국어 음성 우선
-            if (langCode === 'zh-CN') {
-                bestVoice = voices.find(v =>
-                    (v.lang.includes('cmn') || v.lang.includes('zh-CN')) &&
-                    (v.name.includes('Xiaoxiao') || v.name.includes('Yunyang') || v.name.includes('Neural'))
-                );
-            }
-
-            if (!bestVoice) {
-                for (const keyword of priorityKeywords) {
-                    bestVoice = voices.find(v =>
-                        (v.lang.toLowerCase().includes(langPrefix.toLowerCase()) || v.lang.includes(langCode)) &&
-                        v.name.includes(keyword)
-                    );
-                    if (bestVoice) break;
-                }
-            }
-
-            // 기본 음성
-            if (!bestVoice) {
-                bestVoice = voices.find(v => v.lang.toLowerCase().includes(langPrefix.toLowerCase()) || v.lang.includes(langCode));
-            }
-
-            if (bestVoice) {
-                u.voice = bestVoice;
-                console.log(`🔊 Browser TTS: ${bestVoice.name} (${bestVoice.lang})`);
-            }
-
-            u.rate = 0.95;
-            u.pitch = 1.0;
-
-            window.speechSynthesis.speak(u);
-        }
-    };
-
-    // Initialize Speech Recognition
-    useEffect(() => {
-        if (typeof window !== 'undefined') {
-            const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-            if (SpeechRecognition) {
-                const recognition = new SpeechRecognition();
-                recognition.continuous = true;
-                recognition.interimResults = true;
-
-                recognition.onresult = (event: any) => {
-                    let interimTranscript = '';
-                    for (let i = event.resultIndex; i < event.results.length; ++i) {
-                        interimTranscript += event.results[i][0].transcript;
-                    }
-                    setTranscript(interimTranscript);
-                };
-
-                recognition.onend = () => {
-                    // Logic handled in stopPTT usually, but if it stops unexpectedly?
-                    // We'll rely on explicit start/stop calls.
-                };
-
-                recognitionRef.current = recognition;
-            }
-        }
-    }, []);
-
-    // Handle auto-scroll
-    useEffect(() => {
-        if (chatContainerRef.current) {
-            chatContainerRef.current.scrollTop = chatContainerRef.current.scrollHeight;
-        }
-    }, [messages, transcript]);
-
-    // Preload browser voices (they load asynchronously)
-    useEffect(() => {
-        if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
-            // Trigger voice loading
-            window.speechSynthesis.getVoices();
-            // Some browsers fire this event when voices are ready
-            window.speechSynthesis.onvoiceschanged = () => {
-                window.speechSynthesis.getVoices();
-            };
-        }
-    }, []);
-
-    // Handle Quick Broadcast (from other panels)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    useEffect(() => {
-        if (quickBroadcast) {
-            handleFinalInput(quickBroadcast, 'mgr');
-            onQuickBroadcastDone();
-        }
-    }, [quickBroadcast]);
-
-    // 언어 변경 시 재송출 (원본 HTML의 selectLanguage 기능)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    useEffect(() => {
-        if (reBroadcastTrigger > 0 && lastManagerKR) {
-            // 마지막 관리자 메시지를 새 언어로 재번역 및 TTS
-            handleFinalInput(lastManagerKR, 'mgr');
-        }
-    }, [reBroadcastTrigger]);
-
-    const startPTT = (role: 'mgr' | 'wrk') => {
-        if (isRecording || !recognitionRef.current) return;
+    // 🔄 Message Synchronization
+    const fetchMessages = useCallback(async () => {
+        if (isSyncingRef.current) return;
+        isSyncingRef.current = true;
 
         try {
-            // Set Language
-            // Mgr = Korean
-            // Wrk = Target Lang (e.g., vi-VN)
-            recognitionRef.current.lang = role === 'mgr' ? 'ko-KR' : currentLang;
-            recognitionRef.current.start();
+            const targetName = forcedWorkerName || (mode === 'private' ? userName : 'SITE_GENERAL');
+            if (targetName === 'Loading...') return;
 
-            setIsRecording(true);
-            setRecordingRole(role);
-            setTranscript("");
+            const res = await fetch(`/api/worker/message?workerName=${encodeURIComponent(targetName)}&t=${Date.now()}`);
+            const data = await res.json();
 
-            // Start Timer
-            setTimer(0);
-            timerIntervalRef.current = setInterval(() => {
-                setTimer(prev => prev + 1);
-            }, 100);
+            if (data.success && data.messages) {
+                const serverMsgs: Message[] = data.messages.map((m: any) => ({
+                    id: m.id,
+                    text: m.originalText || "",
+                    translation: m.translatedText || m.originalText,
+                    pronunciation: m.pronunciation || "",
+                    role: m.senderRole === 'manager' ? 'mgr' : 'wrk',
+                    timestamp: new Date(m.createdAt),
+                    workerLanguage: m.workerLanguage,
+                    isOptimistic: false
+                }));
 
+                setMessages(prev => {
+                    const existingIds = new Set(prev.map(p => p.id.toString()));
+                    const newOnes = serverMsgs.filter(m => !existingIds.has(m.id.toString()));
+
+                    // Simple merge strategy
+                    if (newOnes.length === 0) return prev;
+
+                    const merged = [...prev.filter(p => !p.isOptimistic), ...newOnes];
+                    return merged.sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
+                });
+                setIsSyncActive(true);
+            }
         } catch (e) {
-            console.error('Recognition start error:', e);
-            // 이미 시작된 상태이거나 다른 에러일 경우 리셋 시도
-            setIsRecording(false);
+            setIsSyncActive(false);
+        } finally {
+            isSyncingRef.current = false;
         }
-    };
+    }, [mode, userName, forcedWorkerName]);
 
-    const stopPTT = () => {
-        if (!isRecording || !recognitionRef.current) return;
+    useEffect(() => {
+        const interval = setInterval(fetchMessages, 1000);
+        return () => clearInterval(interval);
+    }, [fetchMessages]);
 
-        recognitionRef.current.stop();
-        setIsRecording(false);
-
-        if (timerIntervalRef.current) {
-            clearInterval(timerIntervalRef.current);
-            timerIntervalRef.current = null;
+    // 🔊 Auto-Play logic
+    useEffect(() => {
+        if (messages.length === 0) return;
+        const last = messages[messages.length - 1];
+        if (!last.isOptimistic && last.id !== lastPlayedIdRef.current) {
+            const myRoleTag = viewerRole === 'manager' ? 'mgr' : 'wrk';
+            if (last.role !== myRoleTag && isAudioEnabled) {
+                const langToPlay = last.role === 'mgr' ? (normalizeLanguageCode(last.workerLanguage || currentLang)) : 'ko';
+                playTTS(last.translation || last.text, langToPlay);
+            }
+            lastPlayedIdRef.current = last.id;
         }
+    }, [messages, viewerRole, currentLang, playTTS, isAudioEnabled]);
 
-        // Process Final Input
-        // Add a small delay to ensure final transcript is captured if needed, 
-        // but usually onend or current transcript is enough.
-        // Ideally we wait for 'onend' event but for responsiveness we use current state.
-        if (transcript.trim()) {
-            handleFinalInput(transcript, recordingRole!);
-        }
-
-        setRecordingRole(null);
-        setTranscript("");
-    };
-
+    // 🚀 STT -> THINK -> TTS Final Input Flow
     const handleFinalInput = async (text: string, role: 'mgr' | 'wrk') => {
         if (!text.trim()) return;
+        const tempId = `temp-${Date.now()}`;
+        setMessages(prev => [...prev, { id: tempId, text, role, timestamp: new Date(), isOptimistic: true }]);
+        if (role === 'mgr' && onLastManagerText) onLastManagerText(text);
 
-        if (role === 'mgr') {
-            setLastSourceText(text);
-            onLastManagerText(text); // 상위 컴포넌트에 저장 (재송출용)
-        }
-
-        const newMessage: Message = {
-            id: Date.now(),
-            text: text,
-            role: role,
-            timestamp: new Date()
-        };
-
-        setMessages(prev => [...prev, newMessage]);
-
-        // AI Call
-        setAiStatus('PROCESSING');
         try {
-            const isManager = role === 'mgr';
-            const response = await fetch('/api/translate', {
+            const threadName = forcedWorkerName || (mode === 'private' ? userName : (role === 'wrk' ? userName : 'SITE_GENERAL'));
+            const res = await fetch('/api/worker/message', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    text,
-                    langName: currentLang,
-                    isManager: isManager,
-                    sourceLang: isManager ? 'ko-KR' : currentLang
+                    workerName: threadName,
+                    workerLanguage: currentLang,
+                    message: text,
+                    isUrgent,
+                    senderRole: role === 'mgr' ? 'manager' : 'worker'
                 })
             });
-
-            const data = await response.json();
-
+            const data = await res.json();
             if (data.success) {
-                // Add the response bubble
-                setMessages(prev => [...prev, {
-                    id: Date.now() + 1,
-                    text: data.translation,
-                    role: isManager ? 'wrk' : 'mgr',
-                    verification: data.verification,
-                    timestamp: new Date()
-                }]);
-
-                // Gemini TTS API 호출 (고품질 원어민 음성)
-                const targetLangForTTS = isManager ? currentLang : 'ko-KR';
-                await playGeminiTTS(data.translation, targetLangForTTS);
-
-            } else {
-                console.error(data.error);
-                setAiStatus('DELAYED');
+                // Update with server details
+                setMessages(prev => prev.map(m => m.id === tempId ? {
+                    ...m,
+                    id: data.message.id,
+                    translation: data.message.translatedText,
+                    pronunciation: data.message.pronunciation,
+                    isOptimistic: false
+                } : m));
             }
-
-        } catch (e) {
-            console.error(e);
-            setAiStatus('DELAYED');
-        } finally {
-            setAiStatus('READY');
-        }
+        } catch (e) { }
     };
 
-    const formatTimer = (t: number) => {
-        const m = Math.floor(t / 600).toString().padStart(2, '0');
-        const s = Math.floor((t % 600) / 10).toString().padStart(2, '0');
-        return `${m}:${s}`;
+    // STT Recording Logic
+    const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+    const audioChunksRef = useRef<Blob[]>([]);
+
+    const startRecording = async (role: 'mgr' | 'wrk') => {
+        setIsAudioEnabled(true);
+        try {
+            const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            const mediaRecorder = new MediaRecorder(stream);
+            mediaRecorderRef.current = mediaRecorder;
+            audioChunksRef.current = [];
+            mediaRecorder.ondataavailable = (e) => audioChunksRef.current.push(e.data);
+            mediaRecorder.onstop = async () => {
+                const blob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
+                setTranscript("생각 중...");
+                const fd = new FormData();
+                const langData = getLanguageData(currentLang);
+                fd.append('audio', blob);
+                fd.append('langCode', role === 'mgr' ? 'ko-KR' : langData.sttCode);
+                const res = await fetch('/api/stt', { method: 'POST', body: fd });
+                const data = await res.json();
+                if (data.success) handleFinalInput(data.transcript, role);
+                setIsRecording(false);
+                setRecordingRole(null);
+                stream.getTracks().forEach(t => t.stop());
+            };
+            mediaRecorder.start();
+            setIsRecording(true);
+            setRecordingRole(role);
+            setTimerValue(0);
+            const interval = setInterval(() => setTimerValue(v => v + 1), 100);
+            return () => clearInterval(interval);
+        } catch (e) { console.error(e); }
     };
+
+    const stopRecording = () => mediaRecorderRef.current?.stop();
+
+    useEffect(() => {
+        if (quickBroadcast) handleFinalInput(quickBroadcast, 'mgr');
+        if (onQuickBroadcastDone) onQuickBroadcastDone();
+    }, [quickBroadcast]);
+
+    useEffect(() => {
+        if (chatContainerRef.current) chatContainerRef.current.scrollTop = chatContainerRef.current.scrollHeight;
+    }, [messages, transcript]);
+
+    if (!isMounted) return null;
+
+    // 🚨 BILLBOARD MODE
+    if (isLandscape && messages.length > 0) {
+        const last = messages[messages.length - 1];
+        return (
+            <div className="fixed inset-0 z-[9999] bg-white text-black flex flex-col items-center justify-center p-12 text-center animate-in fade-in duration-500">
+                <div className="flex-1 flex flex-col items-center justify-center">
+                    <h1 className="text-[14vh] font-black leading-[1.1] mb-8 uppercase break-words px-4">
+                        {last.translation || last.text}
+                    </h1>
+                    {last.pronunciation && (
+                        <div className="text-[6vh] font-black bg-yellow-400 text-black px-12 py-4 rounded-full shadow-2xl">
+                            {last.pronunciation}
+                        </div>
+                    )}
+                </div>
+                <div className="mt-8 opacity-40 font-black text-2xl uppercase tracking-[1em]">Safe-Link Billboard</div>
+            </div>
+        );
+    }
 
     return (
-        <div className="h-full flex flex-col p-4 relative">
-            {/* 1. Header Area with Turbo Indicator & Voice Gender */}
-            <div className="flex justify-between items-center mb-4 px-1">
-                <span className="text-[10px] font-black text-orange-500 uppercase tracking-widest">
-                    Target: {langLabel}
-                </span>
+        <div className="h-full flex flex-col bg-white text-slate-900 font-sans p-2 overflow-hidden"
+            onClick={() => !isAudioEnabled && setIsAudioEnabled(true)}>
 
-                {/* Voice Gender 선택 */}
-                <select
-                    value={voiceGender}
-                    onChange={(e) => onVoiceGenderChange(e.target.value as 'male' | 'female')}
-                    className="bg-zinc-800 text-[10px] text-white px-2 py-1 rounded-lg border border-white/10 outline-none cursor-pointer"
-                >
-                    <option value="female">👩 여성</option>
-                    <option value="male">👨 남성</option>
-                </select>
-
-                <div className="flex items-center space-x-1 animate-pulse">
-                    <span className="w-1.5 h-1.5 bg-cyan-500 rounded-full"></span>
-                    <span className="text-[9px] text-cyan-500 font-black uppercase">Turbo Active</span>
+            {/* Header / Status Bar */}
+            <div className="flex justify-between items-center px-4 py-2 border-b border-slate-100 mb-2">
+                <div className="flex items-center gap-2">
+                    <span className={cn("w-2 h-2 rounded-full", isSyncActive ? "bg-emerald-500 shadow-[0_0_10px_#10b981]" : "bg-red-500 animate-pulse")}></span>
+                    <span className="text-[10px] font-black uppercase text-slate-400">Sync Live</span>
                 </div>
-            </div>
-
-            {/* 2. Source Preview */}
-            {lastSourceText && (
-                <div className="mb-3 px-5 py-3 bg-[rgba(255,107,0,0.05)] rounded-2xl border border-orange-500/20 text-[11px] text-zinc-400 shadow-inner flex items-center">
-                    <span className="text-orange-500 font-black mr-2 uppercase text-[9px] tracking-widest whitespace-nowrap">Last KR Source:</span>
-                    <span className="font-medium italic truncate">{lastSourceText}</span>
-                </div>
-            )}
-
-            {/* 3. Chat History */}
-            <div
-                ref={chatContainerRef}
-                className="flex-1 overflow-y-auto no-scrollbar rounded-2xl bg-[rgba(24,24,27,0.4)] border border-white/5 p-4 shadow-inner relative flex flex-col gap-3"
-            >
-                {messages.length === 0 && (
-                    <div className="flex items-center justify-center h-full">
-                        <div className="text-center text-[10px] text-zinc-700 uppercase font-black tracking-[0.3em] leading-relaxed select-none">
-                            TAP TO SPEAK OR TYPE<br />REAL-TIME VERIFICATION MODE
-                        </div>
-                    </div>
-                )}
-
-                {messages.map((msg) => (
-                    <div
-                        key={msg.id}
-                        className={cn(
-                            "max-w-[88%] p-4 rounded-[1.8rem] text-[14px] leading-relaxed relative shadow-lg border border-white/5 animate-in fade-in zoom-in-95 duration-300",
-                            msg.role === 'mgr'
-                                ? "self-end bg-gradient-to-br from-orange-600 to-orange-700 text-white rounded-br-sm"
-                                : "self-start bg-zinc-800 text-white rounded-bl-sm"
-                        )}
-                    >
-                        <div className="text-[9px] font-black opacity-50 mb-1 uppercase tracking-wider">
-                            {msg.role === 'mgr' ? 'Manager' : `Worker (${langLabel})`}
-                        </div>
-                        {msg.text}
-
-                        {/* Verification Box */}
-                        {msg.verification && (
-                            <div className="mt-3 text-[11px] text-slate-300 bg-black/20 rounded-xl p-3 border-l-2 border-cyan-400">
-                                <span className="font-black text-[9px] uppercase tracking-tighter text-cyan-400 block mb-1">
-                                    AI Verification (KO Check):
-                                </span>
-                                {msg.verification}
-                            </div>
-                        )}
-                    </div>
-                ))}
-
-                {/* Recording Overlay */}
-                {isRecording && (
-                    <div className="absolute inset-0 z-50 bg-black/95 flex flex-col items-center justify-center rounded-2xl p-6 border-2 border-red-500 animate-in fade-in duration-200">
-                        <span className="text-4xl font-black text-red-500 mb-2 font-mono tracking-wider">{formatTimer(timer)}</span>
-                        <div className="bg-red-600/20 text-red-500 px-4 py-1 rounded-full text-[10px] font-black uppercase tracking-[0.2em] mb-8 border border-red-500/50 animate-pulse">
-                            Listening...
-                        </div>
-
-                        <div className="w-full bg-white/5 p-6 rounded-2xl border border-white/10 mb-4 backdrop-blur">
-                            <p className="text-center text-zinc-200 font-bold leading-relaxed min-h-[1.5em]">
-                                {transcript || (recordingRole === 'mgr' ? "말씀하세요..." : "Listening...")}
-                            </p>
-                        </div>
-
-                        <p className="text-[10px] text-zinc-500 font-black uppercase tracking-widest mt-4">
-                            TAP AGAIN TO STOP & PROCESS
-                        </p>
-                    </div>
-                )}
-            </div>
-
-            {/* 4. Controls */}
-            <div className="mt-4 space-y-4">
-                {/* Text Input */}
-                <div className="flex items-center gap-2 bg-zinc-900/80 border border-white/5 rounded-2xl p-2 px-3 shadow-inner focus-within:border-orange-500/50 transition-colors">
-                    <input
-                        type="text"
-                        className="bg-transparent border-none text-white flex-1 outline-none text-sm font-medium placeholder-zinc-600"
-                        placeholder="Direct Instruction Input..."
-                        value={inputManagerText}
-                        onChange={(e) => setInputManagerText(e.target.value)}
-                        onKeyDown={(e) => {
-                            if (e.key === 'Enter' && inputManagerText.trim()) {
-                                handleFinalInput(inputManagerText, 'mgr');
-                                setInputManagerText("");
-                            }
-                        }}
-                    />
-                    <button
-                        onClick={() => {
-                            if (inputManagerText.trim()) {
-                                handleFinalInput(inputManagerText, 'mgr');
-                                setInputManagerText("");
-                            }
-                        }}
-                        className="w-8 h-8 bg-orange-600 rounded-lg flex items-center justify-center hover:bg-orange-500 active:scale-95 transition-all text-white"
-                    >
-                        <span className="text-xs">▶</span>
+                <div className="flex gap-2">
+                    <button onClick={() => onVoiceGenderChange?.(voiceGender === 'male' ? 'female' : 'male')}
+                        className={cn("px-4 py-1.5 rounded-full text-[10px] font-black border-2 transition-all",
+                            voiceGender === 'male' ? "bg-blue-600 border-blue-600 text-white" : "bg-pink-600 border-pink-600 text-white")}>
+                        {voiceGender === 'male' ? '👨 Male' : '👩 Female'}
+                    </button>
+                    <button onClick={() => setIsUrgent(!isUrgent)}
+                        className={cn("px-4 py-1.5 rounded-full text-[10px] font-black border-2 transition-all",
+                            isUrgent ? "bg-red-600 border-red-600 text-white shadow-lg animate-pulse" : "bg-slate-100 border-slate-200 text-slate-400")}>
+                        {isUrgent ? '긴급' : '일반'}
                     </button>
                 </div>
+            </div>
 
-                {/* PTT Buttons */}
-                <div className="grid grid-cols-2 gap-8 px-4">
-                    <div className="flex flex-col items-center gap-3">
-                        <button
-                            className={cn(
-                                "w-24 h-24 rounded-full flex items-center justify-center transition-all duration-100 select-none touch-none",
-                                "border-[6px] border-white/5 shadow-2xl",
-                                recordingRole === 'mgr'
-                                    ? "bg-red-500 border-red-400 shadow-[0_0_30px_rgba(239,68,68,0.4)] recording-ring"
-                                    : recordingRole === 'wrk'
-                                        ? "bg-zinc-700 opacity-50 cursor-not-allowed" // 다른 역할 녹음 중일 때 비활성화
-                                        : "bg-orange-600 hover:bg-orange-500 active:scale-95 shadow-orange-900/40"
-                            )}
-                            onClick={(e) => {
-                                e.preventDefault();
-                                if (recordingRole === 'wrk') return; // 다른 역할 녹음 중이면 무시
-                                if (recordingRole === 'mgr') {
-                                    stopPTT(); // 이미 녹음 중이면 중지
-                                } else {
-                                    startPTT('mgr'); // 녹음 시작
-                                }
-                            }}
-                            onContextMenu={(e) => e.preventDefault()} // 우클릭/길게누르기 메뉴 방지
-                        >
-                            <span className="text-4xl filter drop-shadow-lg pointer-events-none">👨‍💼</span>
-                        </button>
-                        <p className="text-[10px] font-black text-zinc-400 uppercase tracking-tighter">Manager (KR)</p>
-                    </div>
+            {/* 💬 Chat Area (High Contrast) */}
+            <div ref={chatContainerRef} className="flex-1 overflow-y-auto px-4 space-y-8 no-scrollbar bg-slate-50/50 rounded-[2rem] py-8">
+                {messages.map((msg) => {
+                    const isMgr = msg.role === 'mgr';
+                    const isMe = (viewerRole === 'manager' && isMgr) || (viewerRole === 'worker' && !isMgr);
 
-                    <div className="flex flex-col items-center gap-3">
-                        <button
-                            className={cn(
-                                "w-24 h-24 rounded-full flex items-center justify-center transition-all duration-100 select-none touch-none",
-                                "border-[6px] border-white/5 shadow-2xl",
-                                recordingRole === 'wrk'
-                                    ? "bg-red-500 border-red-400 shadow-[0_0_30px_rgba(239,68,68,0.4)] recording-ring"
-                                    : recordingRole === 'mgr'
-                                        ? "bg-zinc-700 opacity-50 cursor-not-allowed" // 다른 역할 녹음 중일 때 비활성화
-                                        : "bg-zinc-800 hover:bg-zinc-700 active:scale-95"
-                            )}
-                            onClick={(e) => {
-                                e.preventDefault();
-                                if (recordingRole === 'mgr') return; // 다른 역할 녹음 중이면 무시
-                                if (recordingRole === 'wrk') {
-                                    stopPTT(); // 이미 녹음 중이면 중지
-                                } else {
-                                    startPTT('wrk'); // 녹음 시작
-                                }
-                            }}
-                            onContextMenu={(e) => e.preventDefault()}
-                        >
-                            <span className="text-4xl filter drop-shadow-lg pointer-events-none">👷</span>
+                    return (
+                        <div key={msg.id} className={cn("flex flex-col group animate-in slide-in-from-bottom-4 duration-500", isMe ? "items-end" : "items-start")}>
+                            <div className={cn("flex items-center gap-2 px-4 mb-2 text-[11px] font-black uppercase tracking-widest", isMgr ? "text-indigo-600" : "text-orange-600")}>
+                                {isMgr ? "Management" : "Workforce"}
+                                {msg.isOptimistic ? <Loader2 size={12} className="animate-spin" /> : <CheckCircle2 size={12} />}
+                            </div>
+
+                            {/* Field-First: High Contrast Bubbles for Outdoor Visibility */}
+                            <div className={cn("max-w-[88%] p-6 rounded-[2.5rem] shadow-xl border-[6px] transition-all relative",
+                                isMgr ? "bg-indigo-600 border-indigo-500 text-white rounded-tr-none"
+                                    : "bg-orange-50 border-orange-400 text-slate-900 rounded-tl-none")}>
+
+                                {/* Pronunciation Highlight (Field-First) */}
+                                {!isMe && msg.pronunciation && (
+                                    <div className="bg-yellow-400 text-black px-4 py-1.5 rounded-2xl text-lg font-black mb-4 inline-block shadow-lg border-2 border-black/10">
+                                        🔊 "{msg.pronunciation}"
+                                    </div>
+                                )}
+
+                                {/* Main Text (High Contrast Large) */}
+                                <div className={cn("font-black tracking-tight break-words",
+                                    isMe ? "text-2xl" : "text-3xl")}>
+                                    {isMe ? msg.text : msg.translation}
+                                </div>
+
+                                {/* Original/Secondary Text (Small) */}
+                                <div className={cn("mt-4 pt-4 border-t border-white/20 text-sm font-bold opacity-60 italic",
+                                    isMgr && isMe ? "text-indigo-100" : "text-slate-400")}>
+                                    {isMe ? msg.translation : msg.text}
+                                </div>
+
+                                {/* Quick Play Button */}
+                                <button
+                                    onClick={() => {
+                                        const code = isMgr ? normalizeLanguageCode(currentLang) : 'ko';
+                                        playTTS(msg.translation || msg.text, code);
+                                    }}
+                                    title="Play audio"
+                                    className="absolute -bottom-4 right-4 bg-white text-indigo-600 w-10 h-10 rounded-full flex items-center justify-center shadow-2xl border-2 border-indigo-100 active:scale-90 transition-transform"
+                                >
+                                    <Volume2 size={24} />
+                                </button>
+                            </div>
+                        </div>
+                    );
+                })}
+            </div>
+
+            {/* 🎤 Controls Area */}
+            <div className="p-4 bg-white border-t border-slate-100 flex flex-col gap-4">
+                <div className="flex justify-center gap-12 items-center h-28">
+                    <div className="flex flex-col items-center gap-2">
+                        <button onClick={() => isRecording ? stopRecording() : startRecording('mgr')}
+                            title="Manager Recording"
+                            className={cn("w-24 h-24 rounded-[3rem] transition-all active:scale-95 shadow-2xl flex items-center justify-center text-5xl border-[8px]",
+                                isRecording && recordingRole === 'mgr' ? "bg-red-600 border-red-400 animate-pulse" : "bg-indigo-600 border-indigo-500")}>
+                            👨‍💼
                         </button>
-                        <p className="text-[10px] font-black text-cyan-500 uppercase tracking-tighter">Worker ({langLabel})</p>
+                        <span className="text-[10px] font-black text-indigo-500 uppercase tracking-widest">Manager</span>
                     </div>
+                    <div className="flex flex-col items-center gap-2">
+                        <button onClick={() => isRecording ? stopRecording() : startRecording('wrk')}
+                            title="Worker Recording"
+                            className={cn("w-24 h-24 rounded-[3rem] transition-all active:scale-95 shadow-2xl flex items-center justify-center text-5xl border-[8px]",
+                                isRecording && recordingRole === 'wrk' ? "bg-red-600 border-red-400 animate-pulse" : "bg-slate-100 border-slate-200")}>
+                            👷
+                        </button>
+                        <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Worker</span>
+                    </div>
+                </div>
+
+                <div className="flex items-center gap-4 bg-slate-100 p-4 rounded-full px-8 shadow-inner border border-slate-200">
+                    <button onClick={() => setInputRole(prev => prev === 'mgr' ? 'wrk' : 'mgr')}
+                        className={cn("px-6 py-2 rounded-full text-[10px] font-black transition-all text-white shadow-lg",
+                            inputRole === 'mgr' ? "bg-indigo-600" : "bg-orange-600")}>
+                        {inputRole === 'mgr' ? 'MGR' : 'WRK'}
+                    </button>
+                    <input type="text" value={inputText} onChange={e => setInputText(e.target.value)}
+                        onKeyDown={e => { if (e.key === 'Enter') { handleFinalInput(inputText, inputRole); setInputText(''); } }}
+                        placeholder="Type message..."
+                        className="flex-1 bg-transparent border-none outline-none font-black text-lg text-slate-800 placeholder-slate-400" />
+                    <button
+                        onClick={() => { handleFinalInput(inputText, inputRole); setInputText(''); }}
+                        title="Send Message"
+                        className={cn("w-12 h-12 rounded-full flex items-center justify-center shadow-lg text-white",
+                            inputRole === 'mgr' ? "bg-indigo-600" : "bg-orange-600")}
+                    >
+                        <Send size={20} />
+                    </button>
                 </div>
             </div>
 
-            {/* AI Status */}
-            <div className="mt-4 flex justify-between items-center px-4 py-3 bg-orange-500/5 rounded-xl border border-orange-500/10">
-                <div className="flex items-center gap-2">
-                    {aiStatus === 'PROCESSING' && <Loader2 className="w-3 h-3 text-orange-500 animate-spin" />}
-                    <span className={cn(
-                        "text-[9px] font-black uppercase tracking-widest",
-                        aiStatus === 'PROCESSING' ? "text-orange-500" : "text-zinc-600"
-                    )}>
-                        {aiStatus === 'READY' ? 'AI Ready' : aiStatus === 'PROCESSING' ? 'Processing...' : 'Delayed'}
-                    </span>
+            {/* Overlay Recording */}
+            {isRecording && (
+                <div onClick={stopRecording} className="fixed inset-0 z-[10000] bg-black/98 backdrop-blur-3xl flex flex-col items-center justify-center p-10 cursor-pointer animate-in fade-in duration-300">
+                    <div className="text-[200px] mb-8 drop-shadow-[0_0_80px_rgba(255,255,255,0.2)]">
+                        {recordingRole === 'mgr' ? '👨‍💼' : '👷'}
+                    </div>
+                    <div className="text-white text-9xl font-black mb-12 tabular-nums">
+                        {Math.floor(timerValue / 600).toString().padStart(2, '0')}:{Math.floor((timerValue % 600) / 10).toString().padStart(2, '0')}
+                    </div>
+                    <div className="w-full max-w-5xl bg-white/5 border border-white/10 p-16 rounded-[4rem] text-center">
+                        <div className="bg-red-600 text-white px-8 py-2 rounded-full font-black text-2xl inline-block mb-8 animate-bounce">RECORDING</div>
+                        <p className="text-7xl font-black text-white italic leading-tight">{transcript || "Listening..."}</p>
+                    </div>
                 </div>
-                <div className="flex items-center space-x-0.5 opacity-20">
-                    <div className="w-0.5 h-2 bg-orange-500"></div>
-                    <div className="w-0.5 h-3 bg-orange-500"></div>
-                    <div className="w-0.5 h-1.5 bg-orange-500"></div>
-                </div>
-            </div>
+            )}
         </div>
     );
 }

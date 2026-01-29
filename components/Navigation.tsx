@@ -1,7 +1,7 @@
 "use client";
 
 import { cn } from "@/lib/utils";
-import { MessageCircle, Monitor, Book } from "lucide-react";
+import { MessageCircle, Monitor, Book, LayoutDashboard } from "lucide-react";
 
 interface NavigationProps {
     activeTab: string;
@@ -10,13 +10,14 @@ interface NavigationProps {
 
 export default function Navigation({ activeTab, onTabChange }: NavigationProps) {
     const items = [
+        { id: 'dashboard', label: '상황판', icon: <LayoutDashboard size={20} /> },
         { id: 'chat', label: '통역', icon: <MessageCircle size={20} /> },
         { id: 'control', label: '관제', icon: <Monitor size={20} /> },
         { id: 'glossary', label: '용어', icon: <Book size={20} /> },
     ];
 
     return (
-        <nav className="h-[70px] bg-gradient-to-t from-black via-zinc-950 to-zinc-900/80 backdrop-blur-xl border-t border-white/5 flex justify-around items-center pb-safe select-none z-50 shrink-0">
+        <nav className="h-[70px] bg-white border-t border-slate-200 flex justify-around items-center pb-safe select-none z-50 shrink-0 shadow-[0_-4px_20px_rgba(0,0,0,0.03)]">
             {items.map((item) => (
                 <button
                     key={item.id}

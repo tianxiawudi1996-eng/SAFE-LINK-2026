@@ -2,7 +2,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { getTranslationsByCountry, countryToLanguage, type LanguageCode } from '@/lib/i18n';
+import { normalizeLanguageCode } from '@/lib/i18n';
 
 // 다국어 텍스트
 const LOGIN_TEXTS: Record<string, {
@@ -181,11 +181,11 @@ export default function LoginPage() {
                             {showBilingual && <span className="text-orange-400 ml-2">/ {t.email}</span>}
                         </label>
                         <input
-                            type="email"
+                            type="text"
                             value={email}
                             onChange={(e) => setEmail(e.target.value)}
                             className="w-full p-4 bg-white/5 border border-white/10 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:border-orange-500"
-                            placeholder="example@email.com"
+                            placeholder="example@email.com or login ID"
                             required
                         />
                     </div>
@@ -238,8 +238,8 @@ export default function LoginPage() {
                                 localStorage.setItem('userLanguage', lang);
                             }}
                             className={`px-2 py-1 text-xs rounded-lg transition-all ${userLanguage === lang
-                                    ? 'bg-orange-500 text-white'
-                                    : 'bg-white/10 text-slate-400 hover:bg-white/20'
+                                ? 'bg-orange-500 text-white'
+                                : 'bg-white/10 text-slate-400 hover:bg-white/20'
                                 }`}
                         >
                             {lang === 'Korean' && '🇰🇷'}

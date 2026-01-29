@@ -239,6 +239,7 @@ export default function WorkerSignupPage() {
     const [name, setName] = useState('');
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
+    const [gender, setGender] = useState<'male' | 'female'>('female'); // 기본값 여성
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState('');
 
@@ -276,6 +277,7 @@ export default function WorkerSignupPage() {
                     role: 'worker',
                     country: selectedCountry,
                     language: country?.language || 'English',
+                    gender, // 성별 추가
                 }),
             });
 
@@ -443,6 +445,37 @@ export default function WorkerSignupPage() {
                             placeholder="example@email.com"
                             required
                         />
+                    </div>
+
+                    {/* 성별 선택 */}
+                    <div>
+                        <label className="block text-sm text-slate-300 mb-2">
+                            Gender / 성별
+                        </label>
+                        <div className="grid grid-cols-2 gap-3">
+                            <button
+                                type="button"
+                                onClick={() => setGender('male')}
+                                className={`py-4 rounded-xl border-2 flex items-center justify-center gap-2 transition-all ${gender === 'male'
+                                    ? 'bg-blue-500/20 border-blue-500 text-blue-400'
+                                    : 'bg-white/5 border-white/10 text-slate-500'
+                                    }`}
+                            >
+                                <span className="text-2xl">👨</span>
+                                <span className="font-bold">Male / 남성</span>
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => setGender('female')}
+                                className={`py-4 rounded-xl border-2 flex items-center justify-center gap-2 transition-all ${gender === 'female'
+                                    ? 'bg-orange-500/20 border-orange-500 text-orange-400'
+                                    : 'bg-white/5 border-white/10 text-slate-500'
+                                    }`}
+                            >
+                                <span className="text-2xl">👩</span>
+                                <span className="font-bold">Female / 여성</span>
+                            </button>
+                        </div>
                     </div>
 
                     {/* 비밀번호 */}

@@ -74,16 +74,17 @@ const DEFAULT_MESSAGES: SavedMessage[] = [
 
 interface ControlCenterPageProps {
     onBroadcast?: (text: string) => void;
+    theme?: 'dark' | 'light';
 }
 
-export default function ControlCenterPage({ onBroadcast }: ControlCenterPageProps) {
+export default function ControlCenterPage({ onBroadcast, theme = 'light' }: ControlCenterPageProps) {
     const [savedMessages, setSavedMessages] = useState<SavedMessage[]>([]);
     const [selectedCategory, setSelectedCategory] = useState('all');
     const [searchQuery, setSearchQuery] = useState('');
     const [isPlaying, setIsPlaying] = useState<string | null>(null);
     const [currentTime, setCurrentTime] = useState(new Date());
 
-    // 저장된 메시지 로드
+    // ... (useEffect for loading messages remains same)
     useEffect(() => {
         const stored = localStorage.getItem(STORAGE_KEY);
         if (stored) {
@@ -102,30 +103,27 @@ export default function ControlCenterPage({ onBroadcast }: ControlCenterPageProp
         }
     }, []);
 
-    // 실시간 시계
+    // ... (useEffect for clock remains same)
     useEffect(() => {
         const timer = setInterval(() => setCurrentTime(new Date()), 1000);
         return () => clearInterval(timer);
     }, []);
 
-    // 메시지 저장
+    // ... (handlers remain same)
     const saveMessages = (messages: SavedMessage[]) => {
         setSavedMessages(messages);
         localStorage.setItem(STORAGE_KEY, JSON.stringify(messages));
     };
 
-    // 메시지 삭제
     const deleteMessage = (id: string) => {
         const updated = savedMessages.filter(m => m.id !== id);
         saveMessages(updated);
     };
 
-    // 메시지 방송 (외부로 전달)
     const broadcastMessage = (msg: SavedMessage) => {
         if (onBroadcast) {
             onBroadcast(msg.originalText);
         }
-        // 사용 횟수 증가
         const updated = savedMessages.map(m =>
             m.id === msg.id ? { ...m, usageCount: m.usageCount + 1 } : m
         );
@@ -134,7 +132,6 @@ export default function ControlCenterPage({ onBroadcast }: ControlCenterPageProp
         setTimeout(() => setIsPlaying(null), 3000);
     };
 
-    // 필터링된 메시지
     const filteredMessages = savedMessages.filter(msg => {
         const matchCategory = selectedCategory === 'all' || msg.category === selectedCategory;
         const matchSearch = msg.standardText.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -142,229 +139,228 @@ export default function ControlCenterPage({ onBroadcast }: ControlCenterPageProp
         return matchCategory && matchSearch;
     });
 
+    const isDark = theme === 'dark';
+
     return (
-        <div className="h-full flex flex-col bg-gradient-to-b from-zinc-900 via-zinc-950 to-black overflow-hidden">
-            {/* 헤더 - 관제 센터 스타일 */}
-            <div className="shrink-0 bg-gradient-to-r from-zinc-900 via-zinc-800 to-zinc-900 border-b border-orange-500/30 p-4">
-                <div className="flex items-center justify-between mb-3">
-                    <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-orange-500 to-red-600 flex items-center justify-center shadow-lg shadow-orange-500/20">
-                            <Monitor size={20} className="text-white" />
+        <div className={cn(
+            "h-full flex flex-col overflow-hidden transition-all duration-500",
+            isDark ? "bg-[#0a0a0c] text-white" : "bg-slate-50 text-slate-900"
+        )}>
+            {/* 🛰️ Premium Command Header */}
+            <div className={cn(
+                "shrink-0 p-5 border-b transition-colors",
+                isDark ? "bg-zinc-900/50 border-white/5" : "bg-white border-slate-200"
+            )}>
+                <div className="flex items-center justify-between gap-4">
+                    <div className="flex items-center gap-4">
+                        <div className={cn(
+                            "w-12 h-12 rounded-2xl flex items-center justify-center shadow-lg",
+                            "bg-gradient-to-br from-indigo-600 to-violet-700"
+                        )}>
+                            <Monitor size={22} className="text-white" />
                         </div>
                         <div>
-                            <h2 className="text-white font-black text-sm tracking-tight leading-tight">
-                                현장관제<br />사령실
+                            <h2 className={cn("font-black text-base tracking-tight leading-none uppercase", isDark ? "text-white" : "text-slate-900")}>
+                                Control Center
                             </h2>
-                            <p className="text-[8px] text-orange-400 font-bold uppercase tracking-widest mt-0.5">
-                                CONTROL CENTER
+                            <p className="text-[10px] text-indigo-500 font-bold uppercase tracking-[0.2em] mt-1.5 flex items-center gap-1.5">
+                                <span className="w-1.5 h-1.5 rounded-full bg-indigo-500 animate-pulse" />
+                                Monitoring System
                             </p>
                         </div>
                     </div>
+
                     <div className="text-right">
-                        <div className="flex items-baseline gap-1 justify-end">
-                            <span className="text-lg font-mono text-emerald-400 font-bold">
-                                {currentTime.getHours().toString().padStart(2, '0')}
-                            </span>
-                            <span className="text-[10px] text-emerald-400/60">시</span>
-                            <span className="text-lg font-mono text-emerald-400 font-bold">
-                                {currentTime.getMinutes().toString().padStart(2, '0')}
-                            </span>
-                            <span className="text-[10px] text-emerald-400/60">분</span>
-                            <span className="text-sm font-mono text-emerald-400/80">
-                                {currentTime.getSeconds().toString().padStart(2, '0')}
-                            </span>
-                            <span className="text-[9px] text-emerald-400/50">초</span>
+                        <div className={cn(
+                            "flex items-baseline gap-1 font-mono font-bold text-lg tabular-nums",
+                            isDark ? "text-indigo-400" : "text-indigo-600"
+                        )}>
+                            {currentTime.toLocaleTimeString('ko-KR', { hour12: false })}
                         </div>
-                        <div className="text-[9px] text-zinc-500 tracking-wider mt-0.5">
-                            {currentTime.toLocaleDateString('ko-KR', { month: 'long', day: 'numeric', weekday: 'short' })}
+                        <div className="text-[9px] font-bold text-slate-400 uppercase tracking-wider uppercase">
+                            Operational Time
                         </div>
                     </div>
                 </div>
 
-                {/* 상태 표시줄 */}
-                <div className="flex items-center gap-4 text-[10px]">
-                    <div className="flex items-center gap-1.5 text-emerald-400">
-                        <div className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-                        <span>시스템 정상</span>
+                {/* Live Status Indicators */}
+                <div className="flex items-center gap-4 mt-6">
+                    <div className={cn(
+                        "flex items-center gap-2 px-3 py-1.5 rounded-full border text-[10px] font-bold",
+                        isDark ? "bg-emerald-500/10 border-emerald-500/20 text-emerald-400" : "bg-emerald-50 border-emerald-100 text-emerald-600"
+                    )}>
+                        <Shield size={12} />
+                        SAFE
                     </div>
-                    <div className="flex items-center gap-1.5 text-cyan-400">
+                    <div className={cn(
+                        "flex items-center gap-2 px-3 py-1.5 rounded-full border text-[10px] font-bold",
+                        isDark ? "bg-blue-500/10 border-blue-500/20 text-blue-400" : "bg-blue-50 border-blue-100 text-blue-600"
+                    )}>
                         <Radio size={12} />
-                        <span>TTS 연결됨</span>
+                        ACTIVE
                     </div>
-                    <div className="flex items-center gap-1.5 text-orange-400">
-                        <Zap size={12} />
-                        <span>{savedMessages.length}개 메시지 저장됨</span>
+                    <div className={cn(
+                        "ml-auto text-[10px] font-bold text-slate-400"
+                    )}>
+                        {savedMessages.length} PRESETS
                     </div>
                 </div>
             </div>
 
-            {/* 검색바 */}
-            <div className="shrink-0 p-3 bg-black/30">
-                <div className="relative">
-                    <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500" />
+            {/* 🔍 Smart Search */}
+            <div className="shrink-0 p-4">
+                <div className="relative group">
+                    <Search className={cn(
+                        "absolute left-4 top-1/2 -translate-y-1/2 transition-colors",
+                        isDark ? "text-zinc-600 group-focus-within:text-indigo-400" : "text-slate-400 group-focus-within:text-indigo-600"
+                    )} size={18} />
                     <input
                         type="text"
-                        placeholder="저장된 메시지 검색..."
+                        placeholder="Search command presets..."
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
-                        className="w-full bg-zinc-900 border border-white/10 rounded-xl pl-10 pr-4 py-2.5 text-sm text-white placeholder:text-zinc-600 focus:outline-none focus:border-orange-500/50"
+                        className={cn(
+                            "w-full rounded-2xl pl-12 pr-4 py-3.5 text-sm transition-all outline-none border-2",
+                            isDark
+                                ? "bg-zinc-900 border-zinc-800 text-white focus:border-indigo-500/50"
+                                : "bg-white border-slate-100 text-slate-900 focus:border-indigo-600/30 shadow-sm"
+                        )}
                     />
                 </div>
             </div>
 
-            {/* 카테고리 필터 */}
-            <div className="shrink-0 px-3 py-2 flex gap-2 overflow-x-auto no-scrollbar">
+            {/* 🏷️ Categories */}
+            <div className="shrink-0 px-4 pb-2 flex gap-2 overflow-x-auto no-scrollbar">
                 {CATEGORIES.map(cat => (
                     <button
                         key={cat.id}
                         onClick={() => setSelectedCategory(cat.id)}
                         className={cn(
-                            "flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[11px] font-bold transition-all whitespace-nowrap",
+                            "flex items-center gap-2 px-4 py-2 rounded-xl text-[11px] font-black transition-all whitespace-nowrap uppercase tracking-tighter border",
                             selectedCategory === cat.id
-                                ? "bg-orange-500 text-white shadow-lg shadow-orange-500/30"
-                                : "bg-zinc-800 text-zinc-400 hover:bg-zinc-700"
+                                ? (isDark ? "bg-indigo-600 border-indigo-500 text-white shadow-lg shadow-indigo-600/40" : "bg-indigo-600 border-indigo-600 text-white shadow-lg shadow-indigo-600/20")
+                                : (isDark ? "bg-zinc-900 border-zinc-800 text-zinc-500 hover:text-white" : "bg-white border-slate-200 text-slate-500 hover:bg-slate-50")
                         )}
                     >
                         <span>{cat.icon}</span>
-                        <span>{cat.label}</span>
+                        {cat.label}
                     </button>
                 ))}
             </div>
 
-            {/* 메시지 목록 */}
-            <div className="flex-1 overflow-y-auto p-3 space-y-2">
+            {/* 🗂️ Command List */}
+            <div className="flex-1 overflow-y-auto p-4 space-y-3 no-scrollbar">
                 <AnimatePresence mode="popLayout">
                     {filteredMessages.length === 0 ? (
-                        <div className="flex flex-col items-center justify-center h-40 text-zinc-600">
-                            <AlertTriangle size={32} className="mb-2" />
-                            <p className="text-sm">저장된 메시지가 없습니다</p>
+                        <div className="flex flex-col items-center justify-center h-40 opacity-30">
+                            <AlertTriangle size={32} className="mb-3" />
+                            <p className="text-xs font-bold uppercase tracking-widest">No Commands Found</p>
                         </div>
                     ) : (
                         filteredMessages.map((msg, index) => (
                             <motion.div
                                 key={msg.id}
-                                initial={{ opacity: 0, y: 10 }}
-                                animate={{ opacity: 1, y: 0 }}
+                                layout
+                                initial={{ opacity: 0, scale: 0.95 }}
+                                animate={{ opacity: 1, scale: 1 }}
                                 exit={{ opacity: 0, scale: 0.95 }}
-                                transition={{ delay: index * 0.05 }}
+                                transition={{ duration: 0.2 }}
                                 className={cn(
-                                    "bg-gradient-to-r from-zinc-800/80 to-zinc-900/80 rounded-xl p-3 border transition-all",
+                                    "group rounded-2xl p-4 transition-all border-2 relative overflow-hidden",
                                     isPlaying === msg.id
-                                        ? "border-cyan-500 shadow-lg shadow-cyan-500/20"
-                                        : "border-white/5 hover:border-white/20"
+                                        ? "border-emerald-500 bg-emerald-500/5 shadow-lg"
+                                        : (isDark
+                                            ? "bg-zinc-900/40 border-zinc-800 hover:border-zinc-700 hover:bg-zinc-900/60"
+                                            : "bg-white border-slate-100 hover:border-indigo-600/20 hover:shadow-md")
                                 )}
                             >
-                                <div className="flex items-start justify-between gap-2">
+                                <div className="flex items-start justify-between gap-4">
                                     <div className="flex-1 min-w-0">
-                                        {/* 카테고리 태그 */}
-                                        <span className={cn(
-                                            "text-[9px] font-bold uppercase px-2 py-0.5 rounded-full bg-white/5",
-                                            CATEGORIES.find(c => c.id === msg.category)?.color
-                                        )}>
-                                            {CATEGORIES.find(c => c.id === msg.category)?.icon} {msg.category}
-                                        </span>
+                                        <div className="flex items-center gap-2 mb-2">
+                                            <span className={cn(
+                                                "text-[9px] font-black uppercase px-2 py-0.5 rounded-md",
+                                                isDark ? "bg-white/5" : "bg-slate-100",
+                                                CATEGORIES.find(c => c.id === msg.category)?.color
+                                            )}>
+                                                {msg.category}
+                                            </span>
+                                            {msg.usageCount > 0 && (
+                                                <span className="text-[9px] font-bold text-slate-500 uppercase">
+                                                    Pinned {msg.usageCount}x
+                                                </span>
+                                            )}
+                                        </div>
 
-                                        {/* 메시지 내용 */}
-                                        <p className="text-white font-semibold text-sm mt-1.5 leading-relaxed">
+                                        <p className={cn(
+                                            "font-bold text-sm leading-snug",
+                                            isDark ? "text-zinc-100" : "text-slate-800"
+                                        )}>
                                             {msg.standardText}
                                         </p>
 
-                                        {/* 원본 (은어 포함) */}
                                         {msg.originalText !== msg.standardText && (
-                                            <p className="text-zinc-500 text-[11px] mt-1 italic">
-                                                원본: {msg.originalText}
+                                            <p className="text-[11px] text-indigo-500 mt-1 font-medium font-mono">
+                                                › {msg.originalText}
                                             </p>
                                         )}
-
-                                        {/* 메타 정보 */}
-                                        <div className="flex items-center gap-3 mt-2 text-[9px] text-zinc-600">
-                                            <span className="flex items-center gap-1">
-                                                <Clock size={10} />
-                                                {msg.createdAt.toLocaleDateString()}
-                                            </span>
-                                            <span className="flex items-center gap-1">
-                                                <Play size={10} />
-                                                {msg.usageCount}회 사용
-                                            </span>
-                                        </div>
                                     </div>
 
-                                    {/* 액션 버튼들 */}
-                                    <div className="flex flex-col gap-1.5">
+                                    <div className="flex flex-col gap-2">
                                         <button
                                             onClick={() => broadcastMessage(msg)}
+                                            title="Broadcast this message"
                                             className={cn(
-                                                "w-10 h-10 rounded-lg flex items-center justify-center transition-all",
+                                                "w-10 h-10 rounded-xl flex items-center justify-center transition-all shadow-md active:scale-90",
                                                 isPlaying === msg.id
-                                                    ? "bg-cyan-500 text-white animate-pulse"
-                                                    : "bg-orange-500 text-white hover:bg-orange-400 active:scale-95"
+                                                    ? "bg-emerald-500 text-white animate-pulse"
+                                                    : "bg-indigo-600 text-white hover:bg-indigo-700"
                                             )}
                                         >
-                                            {isPlaying === msg.id ? <Volume2 size={18} /> : <Play size={18} />}
+                                            <Play size={18} fill="currentColor" />
                                         </button>
                                         <button
                                             onClick={() => deleteMessage(msg.id)}
-                                            className="w-10 h-10 rounded-lg bg-zinc-800 text-zinc-500 hover:bg-red-500/20 hover:text-red-400 flex items-center justify-center transition-all"
+                                            title="Delete this message"
+                                            className={cn(
+                                                "w-10 h-10 rounded-xl flex items-center justify-center transition-all opacity-0 group-hover:opacity-100",
+                                                isDark ? "bg-zinc-800 text-zinc-600 hover:text-red-400" : "bg-slate-100 text-slate-400 hover:bg-red-50 hover:text-red-500"
+                                            )}
                                         >
                                             <Trash2 size={16} />
                                         </button>
                                     </div>
                                 </div>
-
-                                {/* 재생 중 표시 */}
-                                {isPlaying === msg.id && (
-                                    <motion.div
-                                        initial={{ opacity: 0, height: 0 }}
-                                        animate={{ opacity: 1, height: 'auto' }}
-                                        className="mt-2 pt-2 border-t border-cyan-500/30"
-                                    >
-                                        <div className="flex items-center gap-2 text-cyan-400 text-[11px]">
-                                            <Volume2 size={14} className="animate-pulse" />
-                                            <span>방송 중...</span>
-                                            <div className="flex gap-0.5">
-                                                {[1, 2, 3, 4, 5].map(i => (
-                                                    <div
-                                                        key={i}
-                                                        className="w-1 bg-cyan-400 rounded-full animate-pulse"
-                                                        style={{
-                                                            height: `${8 + Math.random() * 12}px`,
-                                                            animationDelay: `${i * 0.1}s`
-                                                        }}
-                                                    />
-                                                ))}
-                                            </div>
-                                        </div>
-                                    </motion.div>
-                                )}
                             </motion.div>
                         ))
                     )}
                 </AnimatePresence>
             </div>
 
-            {/* 하단 통계 바 */}
-            <div className="shrink-0 bg-black/50 border-t border-white/5 p-3">
-                <div className="flex items-center justify-between text-[10px]">
-                    <div className="flex items-center gap-4">
-                        <span className="text-zinc-500">
-                            총 <span className="text-orange-400 font-bold">{savedMessages.length}</span>개
-                        </span>
-                        <span className="text-zinc-500">
-                            안전 <span className="text-emerald-400 font-bold">{savedMessages.filter(m => m.category === 'safety').length}</span>
-                        </span>
-                        <span className="text-zinc-500">
-                            긴급 <span className="text-red-400 font-bold">{savedMessages.filter(m => m.category === 'emergency').length}</span>
-                        </span>
+            {/* 📊 Console Footer */}
+            <div className={cn(
+                "shrink-0 p-4 border-t transition-colors",
+                isDark ? "bg-black/50 border-white/5" : "bg-white border-slate-200"
+            )}>
+                <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-4 text-[10px] font-black uppercase tracking-widest text-slate-500">
+                        <div className="flex items-center gap-1.5">
+                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                            Core
+                        </div>
+                        <div className="flex items-center gap-1.5">
+                            <span className="w-1.5 h-1.5 rounded-full bg-blue-500" />
+                            Sync
+                        </div>
                     </div>
-                    <div className="flex items-center gap-1 text-zinc-600">
-                        <Shield size={12} />
-                        <span>SEOWON SAFE-LINK</span>
+                    <div className="text-[9px] font-black italic text-indigo-500 animate-pulse">
+                        READY FOR BROADCAST
                     </div>
                 </div>
             </div>
         </div>
     );
 }
+
 
 // 메시지 저장 유틸리티 함수 (외부에서 호출용)
 export function saveMessageToStorage(message: {

@@ -138,6 +138,7 @@ export default function SitesPage() {
                             <div className="w-32">
                                 <label className="text-[10px] text-zinc-500 font-bold uppercase mb-1 block">지역</label>
                                 <select
+                                    title="Region Selection"
                                     value={newSite.region}
                                     onChange={(e) => setNewSite(prev => ({ ...prev, region: e.target.value }))}
                                     className="w-full bg-zinc-800 border border-white/10 rounded-xl p-3 text-sm font-bold text-white focus:ring-2 focus:ring-sw-orange outline-none"
@@ -178,12 +179,14 @@ export default function SitesPage() {
                                 <button
                                     onClick={(e) => { e.stopPropagation(); startEdit(site); }}
                                     className="w-6 h-6 bg-zinc-800 hover:bg-zinc-700 rounded-md flex items-center justify-center"
+                                    title="현장 편집"
                                 >
                                     <Edit3 size={10} className="text-zinc-400" />
                                 </button>
                                 <button
                                     onClick={(e) => { e.stopPropagation(); deleteSite(site.id); }}
                                     className="w-6 h-6 bg-red-500/20 hover:bg-red-500 rounded-md flex items-center justify-center"
+                                    title="현장 삭제"
                                 >
                                     <Trash2 size={10} className="text-red-400 hover:text-white" />
                                 </button>
@@ -203,6 +206,7 @@ export default function SitesPage() {
                                         checked={isSelected}
                                         readOnly
                                         className="w-4 h-4 accent-sw-orange rounded cursor-pointer pointer-events-none"
+                                        title="현장 선택"
                                     />
                                 </div>
 
@@ -213,8 +217,11 @@ export default function SitesPage() {
                                             value={editForm.name}
                                             onChange={(e) => setEditForm(prev => ({ ...prev, name: e.target.value }))}
                                             className="w-full bg-zinc-900 border border-sw-orange/50 rounded-lg p-2 text-[11px] font-bold text-white outline-none"
+                                            placeholder="현장명"
+                                            title="현장명 편집"
                                         />
                                         <select
+                                            title="Edit Region"
                                             value={editForm.region}
                                             onChange={(e) => setEditForm(prev => ({ ...prev, region: e.target.value }))}
                                             className="w-full bg-zinc-900 border border-white/10 rounded-lg p-2 text-[10px] font-bold text-white outline-none"

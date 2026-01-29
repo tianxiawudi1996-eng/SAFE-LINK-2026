@@ -1,11 +1,12 @@
 "use client";
 
-import { NOGADA_SLANG } from "@/lib/constants";
 import { useState, useEffect } from "react";
+import { cn } from "@/lib/utils";
 import { motion, AnimatePresence } from "framer-motion";
-import { Plus, X, Check, Search, Book } from "lucide-react";
+import { Plus, X, Check, Search, Book, RefreshCcw } from "lucide-react";
 
 interface SlangItem {
+    id?: string;
     slang: string;
     standard: string;
     vi: string;
@@ -21,104 +22,172 @@ interface SlangItem {
 interface GlossaryPageProps {
     onTermSelect?: (term: string) => void;
     compact?: boolean;
+    theme?: 'dark' | 'light';
 }
 
-export default function GlossaryPage({ onTermSelect, compact = false }: GlossaryPageProps) {
+export default function GlossaryPage({ onTermSelect, compact = false, theme = 'light' }: GlossaryPageProps) {
     const [filter, setFilter] = useState("");
-    const [customTerms, setCustomTerms] = useState<SlangItem[]>([]);
+    const [terms, setTerms] = useState<SlangItem[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
     const [isAddMode, setIsAddMode] = useState(false);
     const [newTerm, setNewTerm] = useState<Partial<SlangItem>>({
         slang: "", standard: "", vi: "", uz: "", en: "", km: "", mn: "", zh: "", th: "", ru: ""
     });
 
-    // Load from localStorage on mount
-    useEffect(() => {
-        const saved = localStorage.getItem('safelink_custom_terms');
-        if (saved) {
-            setCustomTerms(JSON.parse(saved));
+    const fetchTerms = async () => {
+        setIsLoading(true);
+        try {
+            const res = await fetch('/api/dictionary');
+            const data = await res.json();
+            if (data.success) {
+                const mapped: SlangItem[] = data.terms.map((t: any) => {
+                    const trs = t.translations || {};
+                    return {
+                        id: t.id,
+                        slang: t.krSlang,
+                        standard: t.krStandard,
+                        vi: trs['vi-VN']?.slang || '-',
+                        uz: trs['uz-UZ']?.slang || '-',
+                        en: trs['en-US']?.slang || '-',
+                        zh: trs['zh-CN']?.slang || '-',
+                        km: trs['km-KH']?.slang || '-',
+                        mn: trs['mn-MN']?.slang || '-',
+                        th: trs['th-TH']?.slang || '-',
+                        ru: trs['ru-RU']?.slang || '-'
+                    };
+                });
+                setTerms(mapped);
+            }
+        } catch (e) {
+            console.error("Fetch Dictionary Error:", e);
+        } finally {
+            setIsLoading(false);
         }
+    };
+
+    useEffect(() => {
+        fetchTerms();
     }, []);
 
-    // Save to localStorage when customTerms change
-    useEffect(() => {
-        if (customTerms.length > 0) {
-            localStorage.setItem('safelink_custom_terms', JSON.stringify(customTerms));
-        }
-    }, [customTerms]);
-
-    const allTerms = [...NOGADA_SLANG, ...customTerms];
-    const filteredSlang = allTerms.filter(item =>
+    const filteredSlang = terms.filter(item =>
         item.slang.includes(filter) || item.standard.toLowerCase().includes(filter.toLowerCase())
     );
 
-    const handleAddTerm = () => {
+    const handleAddTerm = async () => {
         if (!newTerm.slang || !newTerm.standard) return;
 
-        const termToAdd: SlangItem = {
-            slang: newTerm.slang || "",
-            standard: newTerm.standard || "",
-            vi: newTerm.vi || "-",
-            uz: newTerm.uz || "-",
-            en: newTerm.en || "-",
-            km: newTerm.km || "-",
-            mn: newTerm.mn || "-",
-            zh: newTerm.zh || "-",
-            th: newTerm.th || "-",
-            ru: newTerm.ru || "-"
+        const translations: any = {};
+        const langMap: Record<string, string> = {
+            vi: 'vi-VN', uz: 'uz-UZ', en: 'en-US', zh: 'zh-CN',
+            km: 'km-KH', mn: 'mn-MN', th: 'th-TH', ru: 'ru-RU'
         };
 
-        setCustomTerms(prev => [...prev, termToAdd]);
-        setNewTerm({ slang: "", standard: "", vi: "", uz: "", en: "", km: "", mn: "", zh: "", th: "", ru: "" });
-        setIsAddMode(false);
+        Object.keys(langMap).forEach(key => {
+            const val = (newTerm as any)[key];
+            if (val) {
+                translations[langMap[key]] = { standard: val, slang: val };
+            }
+        });
+
+        try {
+            const res = await fetch('/api/dictionary', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    krSlang: newTerm.slang,
+                    krStandard: newTerm.standard,
+                    translations,
+                    category: 'Custom'
+                })
+            });
+            const data = await res.json();
+            if (data.success) {
+                fetchTerms();
+                setNewTerm({ slang: "", standard: "", vi: "", uz: "", en: "", km: "", mn: "", zh: "", th: "", ru: "" });
+                setIsAddMode(false);
+            }
+        } catch (e) {
+            console.error("Add Term Error:", e);
+        }
     };
 
-    const handleDeleteTerm = (slang: string) => {
-        setCustomTerms(prev => prev.filter(t => t.slang !== slang));
-        const updated = customTerms.filter(t => t.slang !== slang);
-        localStorage.setItem('safelink_custom_terms', JSON.stringify(updated));
+    const handleDeleteTerm = async (id: string) => {
+        if (!confirm("Are you sure you want to delete this term?")) return;
+        try {
+            const res = await fetch(`/api/dictionary?id=${id}`, { method: 'DELETE' });
+            const data = await res.json();
+            if (data.success) {
+                fetchTerms();
+            }
+        } catch (e) {
+            console.error("Delete Term Error:", e);
+        }
     };
 
-    const isCustomTerm = (slang: string) => customTerms.some(t => t.slang === slang);
+    const isDark = theme === 'dark';
 
     // Compact 모드 (PC 사이드바용)
     if (compact) {
         return (
-            <div className="h-full flex flex-col">
+            <div className={cn(
+                "h-full flex flex-col transition-colors duration-500",
+                isDark ? "bg-[#0c0c0e] text-white" : "bg-white text-slate-900"
+            )}>
                 {/* 헤더 */}
-                <div className="shrink-0 px-4 py-3 border-b border-white/5">
-                    <div className="flex items-center gap-2">
-                        <Book size={16} className="text-orange-400" />
-                        <h3 className="text-sm font-bold text-white">용어사전</h3>
+                <div className={cn(
+                    "shrink-0 px-5 py-5 border-b transition-colors",
+                    isDark ? "border-white/5 bg-zinc-900/20" : "border-slate-100 bg-slate-50/30"
+                )}>
+                    <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                            <Book size={16} className="text-indigo-500" />
+                            <h3 className={cn("text-xs font-black uppercase tracking-widest", isDark ? "text-white" : "text-slate-800")}>Glossary</h3>
+                        </div>
+                        <button onClick={fetchTerms} title="Refresh Glossary" aria-label="Refresh Glossary" className="p-1 hover:rotate-180 transition-transform duration-500">
+                            <RefreshCcw size={14} className="text-slate-400" />
+                        </button>
                     </div>
                 </div>
 
                 {/* 검색 */}
-                <div className="shrink-0 p-3">
-                    <div className="relative">
-                        <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500" />
+                <div className="shrink-0 p-4">
+                    <div className="relative group">
+                        <Search size={16} className={cn("absolute left-4 top-1/2 -translate-y-1/2 transition-colors", isDark ? "text-zinc-600 group-focus-within:text-indigo-500" : "text-slate-400 group-focus-within:text-indigo-600")} />
                         <input
                             type="text"
                             value={filter}
                             onChange={(e) => setFilter(e.target.value)}
-                            className="w-full bg-zinc-800/50 border border-white/5 rounded-lg pl-9 pr-3 py-2 text-xs text-white placeholder:text-zinc-600 focus:outline-none focus:border-orange-500/50"
-                            placeholder="용어 검색..."
+                            className={cn(
+                                "w-full rounded-2xl pl-12 pr-4 py-3 text-xs transition-all outline-none border-2",
+                                isDark
+                                    ? "bg-zinc-900 border-zinc-800 text-white focus:border-indigo-500/50"
+                                    : "bg-white border-slate-100 text-slate-900 focus:border-indigo-600/30"
+                            )}
+                            placeholder="Search jargon..."
                         />
                     </div>
                 </div>
 
                 {/* 용어 목록 */}
-                <div className="flex-1 overflow-y-auto px-3 pb-3 space-y-1.5">
-                    {filteredSlang.slice(0, 15).map((item) => (
+                <div className="flex-1 overflow-y-auto px-4 pb-4 space-y-2 no-scrollbar">
+                    {isLoading ? (
+                        <div className="p-10 text-center opacity-30"><RefreshCcw className="animate-spin mx-auto" /></div>
+                    ) : filteredSlang.slice(0, 20).map((item) => (
                         <div
-                            key={item.slang}
+                            key={item.id}
                             onClick={() => onTermSelect?.(item.slang)}
-                            className="bg-zinc-800/30 hover:bg-zinc-700/50 rounded-lg p-2.5 cursor-pointer transition-colors border border-transparent hover:border-orange-500/30"
+                            className={cn(
+                                "group rounded-xl p-3.5 cursor-pointer transition-all border-2",
+                                isDark
+                                    ? "bg-zinc-900/40 border-zinc-800 hover:border-indigo-500/30 hover:bg-zinc-900/60"
+                                    : "bg-slate-50 border-slate-50 hover:border-indigo-600/20 hover:bg-white hover:shadow-sm"
+                            )}
                         >
-                            <div className="flex items-center justify-between mb-1">
-                                <span className="text-orange-400 font-bold text-xs">{item.slang}</span>
-                                <span className="text-[9px] text-zinc-500">{item.en}</span>
+                            <div className="flex items-center justify-between mb-1.5">
+                                <span className="text-orange-500 font-black text-sm uppercase tracking-tight">{item.slang}</span>
+                                <span className="text-[10px] font-bold text-slate-400 uppercase">{item.en}</span>
                             </div>
-                            <span className="text-[10px] text-zinc-400">{item.standard}</span>
+                            <span className={cn("text-[11px] font-medium leading-tight", isDark ? "text-zinc-400" : "text-slate-500")}>{item.standard}</span>
                         </div>
                     ))}
                 </div>
@@ -127,67 +196,92 @@ export default function GlossaryPage({ onTermSelect, compact = false }: Glossary
     }
 
     return (
-        <div className="h-full flex flex-col bg-gradient-to-b from-zinc-900 to-black overflow-hidden">
+        <div className={cn(
+            "h-full flex flex-col overflow-hidden transition-colors duration-500",
+            isDark ? "bg-[#0a0a0c] text-white" : "bg-white text-slate-900"
+        )}>
             {/* 헤더 */}
-            <div className="shrink-0 p-5 border-b border-white/5">
-                <div className="flex justify-between items-start">
+            <div className={cn(
+                "shrink-0 p-6 border-b transition-colors",
+                isDark ? "border-white/5 bg-zinc-900/20" : "border-slate-100"
+            )}>
+                <div className="flex justify-between items-center">
                     <div>
-                        <h2 className="text-xl font-black text-white tracking-tight">용어사전</h2>
-                        <p className="text-[9px] text-zinc-500 uppercase tracking-widest mt-1">8-LANGUAGE MAPPING</p>
+                        <h2 className={cn("text-2xl font-black tracking-tight", isDark ? "text-white" : "text-slate-900")}>Glossary</h2>
+                        <p className="text-[10px] text-indigo-500 font-bold uppercase tracking-[0.2em] mt-1.5 flex items-center gap-1.5">
+                            <span className="w-1.5 h-1.5 rounded-full bg-indigo-500" />
+                            Cloud-Sync Mapping
+                        </p>
                     </div>
-                    <button
-                        onClick={() => setIsAddMode(!isAddMode)}
-                        className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-[10px] font-bold transition-all ${isAddMode
-                            ? "bg-zinc-700 text-white"
-                            : "bg-orange-500 text-white hover:bg-orange-400"
-                            }`}
-                    >
-                        {isAddMode ? <X size={12} /> : <Plus size={12} />}
-                        {isAddMode ? "취소" : "추가"}
-                    </button>
+                    <div className="flex gap-2">
+                        <button onClick={fetchTerms} title="Refresh Glossary" aria-label="Refresh Glossary" className="p-3 hover:bg-slate-100 rounded-xl transition-colors">
+                            <RefreshCcw size={16} className={cn(isLoading && "animate-spin")} />
+                        </button>
+                        <button
+                            onClick={() => setIsAddMode(!isAddMode)}
+                            className={cn(
+                                "flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-black transition-all shadow-lg active:scale-95",
+                                isAddMode
+                                    ? (isDark ? "bg-zinc-800 text-white" : "bg-slate-100 text-slate-600")
+                                    : "bg-indigo-600 text-white hover:bg-indigo-700 shadow-indigo-600/20"
+                            )}
+                        >
+                            {isAddMode ? <X size={14} /> : <Plus size={14} />}
+                            {isAddMode ? "CANCEL" : "ADD NEW"}
+                        </button>
+                    </div>
                 </div>
             </div>
 
             {/* 스크롤 영역 */}
-            <div className="flex-1 overflow-y-auto p-5 no-scrollbar">
+            <div className="flex-1 overflow-y-auto p-6 no-scrollbar">
 
                 {/* Add Term Form */}
                 <AnimatePresence>
                     {isAddMode && (
                         <motion.div
-                            initial={{ opacity: 0, height: 0 }}
-                            animate={{ opacity: 1, height: "auto" }}
-                            exit={{ opacity: 0, height: 0 }}
-                            className="mb-6 overflow-hidden"
+                            initial={{ opacity: 0, y: -20 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            exit={{ opacity: 0, scale: 0.95 }}
+                            className="mb-8"
                         >
-                            <div className="bg-zinc-900/80 border border-sw-orange/30 rounded-2xl p-5 space-y-4">
-                                <div className="grid grid-cols-2 gap-3">
+                            <div className={cn(
+                                "rounded-3xl p-6 space-y-4 border-2 shadow-2xl",
+                                isDark ? "bg-zinc-900/80 border-indigo-500/20" : "bg-white border-indigo-100"
+                            )}>
+                                <div className="grid grid-cols-2 gap-4">
                                     <input
                                         type="text"
                                         value={newTerm.slang}
                                         onChange={(e) => setNewTerm(prev => ({ ...prev, slang: e.target.value }))}
-                                        placeholder="현장 은어 *"
-                                        className="bg-zinc-800 border border-white/10 rounded-xl p-3 text-sm font-bold text-white focus:ring-2 focus:ring-sw-orange outline-none"
+                                        placeholder="Site Jargon *"
+                                        className={cn(
+                                            "w-full rounded-2xl p-4 text-sm font-bold transition-all outline-none border-2",
+                                            isDark ? "bg-zinc-800 border-zinc-700 text-white focus:border-indigo-500" : "bg-slate-50 border-slate-100 text-slate-900 focus:border-indigo-600"
+                                        )}
                                     />
                                     <input
                                         type="text"
                                         value={newTerm.standard}
                                         onChange={(e) => setNewTerm(prev => ({ ...prev, standard: e.target.value }))}
-                                        placeholder="표준어 (영문) *"
-                                        className="bg-zinc-800 border border-white/10 rounded-xl p-3 text-sm font-bold text-white focus:ring-2 focus:ring-sw-orange outline-none"
+                                        placeholder="Standard Korean *"
+                                        className={cn(
+                                            "w-full rounded-2xl p-4 text-sm font-bold transition-all outline-none border-2",
+                                            isDark ? "bg-zinc-800 border-zinc-700 text-white focus:border-indigo-500" : "bg-slate-50 border-slate-100 text-slate-900 focus:border-indigo-600"
+                                        )}
                                     />
                                 </div>
 
                                 <div className="grid grid-cols-4 gap-2">
                                     {[
-                                        { key: 'vi', label: '🇻🇳 베트남' },
-                                        { key: 'uz', label: '🇺🇿 우즈벡' },
-                                        { key: 'en', label: '🇺🇸 영어' },
-                                        { key: 'zh', label: '🇨🇳 중국어' },
-                                        { key: 'km', label: '🇰🇭 캄보디아' },
-                                        { key: 'mn', label: '🇲🇳 몽골어' },
-                                        { key: 'th', label: '🇹🇭 태국어' },
-                                        { key: 'ru', label: '🇷🇺 러시아어' },
+                                        { key: 'vi', label: '🇻🇳 VN' },
+                                        { key: 'uz', label: '🇺🇿 UZ' },
+                                        { key: 'en', label: '🇺🇸 EN' },
+                                        { key: 'zh', label: '🇨🇳 ZH' },
+                                        { key: 'km', label: '🇰🇭 KM' },
+                                        { key: 'mn', label: '🇲🇳 MN' },
+                                        { key: 'th', label: '🇹🇭 TH' },
+                                        { key: 'ru', label: '🇷🇺 RU' },
                                     ].map(({ key, label }) => (
                                         <input
                                             key={key}
@@ -195,7 +289,10 @@ export default function GlossaryPage({ onTermSelect, compact = false }: Glossary
                                             value={(newTerm as any)[key] || ""}
                                             onChange={(e) => setNewTerm(prev => ({ ...prev, [key]: e.target.value }))}
                                             placeholder={label}
-                                            className="bg-zinc-800/50 border border-white/5 rounded-lg p-2 text-[11px] font-bold text-white focus:ring-1 focus:ring-sw-orange outline-none placeholder:text-zinc-600"
+                                            className={cn(
+                                                "rounded-xl p-3 text-[10px] font-black transition-all outline-none border-2 truncate",
+                                                isDark ? "bg-zinc-800/50 border-zinc-700 text-white focus:border-indigo-500" : "bg-slate-50 border-slate-100 text-slate-900 focus:border-indigo-600"
+                                            )}
                                         />
                                     ))}
                                 </div>
@@ -203,68 +300,84 @@ export default function GlossaryPage({ onTermSelect, compact = false }: Glossary
                                 <button
                                     onClick={handleAddTerm}
                                     disabled={!newTerm.slang || !newTerm.standard}
-                                    className="w-full py-3 bg-sw-orange rounded-xl font-black text-white flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-orange-500 transition-colors"
+                                    className="w-full py-4 bg-indigo-600 rounded-2xl font-black text-white flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-600/20 active:scale-95"
                                 >
-                                    <Check size={16} /> 용어 등록
+                                    <Check size={18} /> REGISTER TO CLOUD
                                 </button>
                             </div>
                         </motion.div>
                     )}
                 </AnimatePresence>
 
-                <div className="relative mb-6 sticky top-0 z-10">
+                <div className="relative mb-8 sticky top-0 z-10 group">
+                    <Search className={cn("absolute left-6 top-1/2 -translate-y-1/2 transition-colors", isDark ? "text-zinc-600 group-focus-within:text-orange-500" : "text-slate-400 group-focus-within:text-orange-500")} size={20} />
                     <input
                         type="text"
                         value={filter}
                         onChange={(e) => setFilter(e.target.value)}
-                        className="w-full bg-zinc-900/90 backdrop-blur-md border border-white/10 rounded-[1.5rem] p-5 text-sm font-bold text-white focus:ring-2 focus:ring-sw-orange outline-none transition shadow-xl"
-                        placeholder="현장 용어 검색 (예: 아시바, 공구리, 데마찌)"
+                        className={cn(
+                            "w-full backdrop-blur-xl rounded-[2rem] pl-16 pr-6 py-6 text-sm font-black transition-all outline-none border-2 shadow-xl",
+                            isDark
+                                ? "bg-zinc-900/90 border-zinc-800 text-white focus:border-orange-500"
+                                : "bg-white/90 border-slate-100 text-slate-900 focus:border-orange-500 shadow-indigo-100/50"
+                        )}
+                        placeholder="Search for slang (e.g., Ah-shi-ba, Gong-gu-ri)..."
                     />
-                    <span className="absolute right-6 top-5 opacity-40 text-xl text-white">🔍</span>
                 </div>
 
-                <div className="space-y-4">
-                    {filteredSlang.map((item, idx) => (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-1 gap-4">
+                    {isLoading ? (
+                        <div className="py-20 text-center opacity-30"><RefreshCcw className="animate-spin mx-auto w-12 h-12" /></div>
+                    ) : filteredSlang.map((item, idx) => (
                         <motion.div
-                            key={item.slang}
-                            initial={{ opacity: 0, y: 20 }}
+                            key={item.id}
+                            initial={{ opacity: 0, y: 10 }}
                             animate={{ opacity: 1, y: 0 }}
-                            transition={{ delay: idx * 0.03 }}
+                            transition={{ delay: idx * 0.01 }}
                             onClick={() => onTermSelect?.(item.slang)}
-                            className="group relative bg-[#111113] p-5 rounded-2xl border border-white/5 hover:border-sw-orange/50 transition-all cursor-pointer active:scale-[0.98]"
-                        >
-                            {/* Delete button for custom terms */}
-                            {isCustomTerm(item.slang) && (
-                                <button
-                                    onClick={(e) => { e.stopPropagation(); handleDeleteTerm(item.slang); }}
-                                    className="absolute top-3 right-3 w-6 h-6 bg-red-500/20 hover:bg-red-500 rounded-full flex items-center justify-center transition-colors"
-                                >
-                                    <X size={12} className="text-red-400 group-hover:text-white" />
-                                </button>
+                            className={cn(
+                                "group relative p-6 rounded-3xl border-2 transition-all cursor-pointer active:scale-[0.98]",
+                                isDark
+                                    ? "bg-[#141417] border-zinc-800 hover:border-orange-500/50"
+                                    : "bg-white border-slate-100 hover:border-orange-500/30 hover:shadow-xl"
                             )}
+                        >
+                            {/* Delete button */}
+                            <button
+                                onClick={(e) => { e.stopPropagation(); if (item.id) handleDeleteTerm(item.id); }}
+                                title="Delete term"
+                                className="absolute top-4 right-4 w-8 h-8 bg-red-500/10 hover:bg-red-500 rounded-full flex items-center justify-center transition-all group-hover:scale-110"
+                            >
+                                <X size={14} className="text-red-500 group-hover:text-white" />
+                            </button>
 
-                            <div className="flex justify-between items-start mb-4 pr-8">
-                                <div className="flex flex-col">
-                                    <div className="flex items-center gap-2">
-                                        <span className="text-sw-orange font-black text-xl group-hover:text-amber-500 transition-colors">{item.slang}</span>
-                                        {isCustomTerm(item.slang) && (
-                                            <span className="text-[8px] bg-sw-orange/20 text-sw-orange px-2 py-0.5 rounded-full font-bold">CUSTOM</span>
-                                        )}
+                            <div className="flex justify-between items-start mb-6">
+                                <div className="space-y-1.5">
+                                    <div className="flex items-center gap-3">
+                                        <span className="text-orange-500 font-black text-2xl tracking-tight group-hover:scale-105 transition-transform origin-left">{item.slang}</span>
                                     </div>
-                                    <span className="text-[11px] text-zinc-500 font-bold uppercase tracking-wider italic">표준어: <span className="text-zinc-300">{item.standard}</span></span>
+                                    <p className={cn("text-[11px] font-bold uppercase tracking-[0.1em]", isDark ? "text-zinc-500" : "text-slate-400")}>
+                                        Standard: <span className={cn(isDark ? "text-indigo-400" : "text-indigo-600")}>{item.standard}</span>
+                                    </p>
                                 </div>
-                                <span className="text-zinc-700 font-black text-[10px] uppercase tracking-tighter group-hover:text-sw-orange transition-colors">Fast Inject ➜</span>
                             </div>
 
                             <div className="grid grid-cols-4 gap-2">
-                                {Object.entries({
-                                    '🇻🇳': item.vi,
-                                    '🇺🇿': item.uz,
-                                    '🇺🇸': item.en,
-                                    '🇨🇳': item.zh
-                                }).map(([flag, val]) => (
-                                    <div key={flag} className="text-[9px] bg-black/40 border border-white/5 py-1.5 px-2 rounded-lg text-zinc-400 font-bold truncate flex items-center gap-1">
-                                        <span>{flag}</span>
+                                {[
+                                    { flag: '🇻🇳', val: item.vi },
+                                    { flag: '🇺🇿', val: item.uz },
+                                    { flag: '🇺🇸', val: item.en },
+                                    { flag: '🇨🇳', val: item.zh },
+                                    { flag: '��', val: item.km },
+                                    { flag: '��', val: item.mn },
+                                    { flag: '��', val: item.th },
+                                    { flag: '��', val: item.ru },
+                                ].filter(f => f.val && f.val !== '-').slice(0, 4).map(({ flag, val }) => (
+                                    <div key={flag} className={cn(
+                                        "text-[10px] py-2 px-3 rounded-xl font-bold flex items-center gap-2 border transition-all",
+                                        isDark ? "bg-black/40 border-white/5 text-zinc-400" : "bg-slate-50 border-slate-100 text-slate-600"
+                                    )}>
+                                        <span className="text-lg grayscale group-hover:grayscale-0 transition-all">{flag}</span>
                                         <span className="truncate">{val}</span>
                                     </div>
                                 ))}
@@ -272,9 +385,10 @@ export default function GlossaryPage({ onTermSelect, compact = false }: Glossary
                         </motion.div>
                     ))}
 
-                    {filteredSlang.length === 0 && (
-                        <div className="text-center py-20 text-zinc-500 text-xs font-medium">
-                            검색 결과가 없습니다
+                    {filteredSlang.length === 0 && !isLoading && (
+                        <div className="text-center py-20 opacity-30">
+                            <Book size={48} className="mx-auto mb-4" />
+                            <p className="text-sm font-black uppercase tracking-widest">No matching jargon found</p>
                         </div>
                     )}
                 </div>

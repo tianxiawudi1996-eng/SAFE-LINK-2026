@@ -3,6 +3,12 @@
 ## Overview
 Standard procedure for deploying SAFE-LINK to Vercel.
 
+> 🚨 **CRITICAL WARNING**:
+> **DO NOT DEPLOY WITHOUT EXPLICIT USER APPROVAL.**
+> The current production version is being tested by staff.
+> Any unauthorized deployment could disrupt ongoing operations.
+> **ALWAYS ASK BEFORE RUNNING DEPLOY SCRIPTS.**
+
 ## Execution Tools
 *   **Script**: `execution/deploy.bat`
 *   **Environment**: Windows PowerShell / CMD

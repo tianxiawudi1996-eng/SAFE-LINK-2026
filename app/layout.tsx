@@ -4,6 +4,15 @@ import './globals.css';
 export const metadata: Metadata = {
   title: 'SEOWON SAFE-LINK | 실시간 안전통역',
   description: '서원토건 실시간 안전현장 통역 시스템 - 8개국어 지원',
+  manifest: '/manifest.json',
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: 'black-translucent',
+    title: 'SAFE-LINK',
+  },
+  formatDetection: {
+    telephone: false,
+  },
 };
 
 export const viewport = {
@@ -11,6 +20,7 @@ export const viewport = {
   initialScale: 1,
   maximumScale: 1,
   userScalable: false,
+  viewportFit: 'cover',
 };
 
 export default function RootLayout({

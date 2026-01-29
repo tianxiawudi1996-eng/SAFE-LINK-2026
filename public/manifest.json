@@ -1,0 +1,22 @@
+{
+  "name": "SEOWON SAFE-LINK",
+  "short_name": "SAFE-LINK",
+  "description": "서원토건 실시간 안전통역 시스템",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#000000",
+  "theme_color": "#000000",
+  "orientation": "any",
+  "icons": [
+    {
+      "src": "/icon-192x192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "/icon-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}

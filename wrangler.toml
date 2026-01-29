@@ -1,0 +1,10 @@
+name = "safe-link-app"
+compatibility_date = "2024-04-01"
+compatibility_flags = ["nodejs_compat"]
+pages_build_output_dir = ".vercel/output/static"
+
+[site]
+bucket = ".vercel/output/static"
+
+# Safety Interpreter uses heavy AI API calls, so standard limits apply.
+# Usage model: unbound is recommended for production.

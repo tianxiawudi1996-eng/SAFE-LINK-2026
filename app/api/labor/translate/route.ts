@@ -20,9 +20,8 @@ export async function POST(request: NextRequest) {
 
         // 1. Load Excel
         const arrayBuffer = await file.arrayBuffer();
-        const buffer = Buffer.from(arrayBuffer);
         const workbook = new ExcelJS.Workbook();
-        await workbook.xlsx.load(buffer);
+        await workbook.xlsx.load(arrayBuffer as any);
 
         // 2. Extract Text
         const worksheet = workbook.worksheets[0]; // Process first sheet

@@ -1,6 +1,7 @@
 'use client';
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import SignaturePad from '@/components/SignaturePad';
 
 interface TbmSession {
@@ -158,6 +159,7 @@ const langCodeToKey: Record<string, string> = {
 export default function WorkerTBMPage() {
     const [session, setSession] = useState<TbmSession | null>(null);
     const [translatedText, setTranslatedText] = useState<string>('');
+    const [translatedPronunciation, setTranslatedPronunciation] = useState<string>('');
     const [workerName, setWorkerName] = useState('');
     const [isSigned, setIsSigned] = useState(false);
     const [isLoading, setIsLoading] = useState(true);
@@ -289,12 +291,15 @@ export default function WorkerTBMPage() {
             const data = await res.json();
             if (data.success) {
                 setTranslatedText(data.translation);
+                setTranslatedPronunciation(data.pronunciation || '');
             } else {
                 setTranslatedText(text);
+                setTranslatedPronunciation('');
             }
         } catch (e) {
             console.error('Translation failed', e);
             setTranslatedText(text);
+            setTranslatedPronunciation('');
         } finally {
             setIsTranslating(false);
         }
@@ -389,6 +394,7 @@ export default function WorkerTBMPage() {
                 {/* Language Selector */}
                 <div className="flex justify-end mb-4">
                     <select
+                        title="Language Selection"
                         value={language}
                         onChange={(e) => setLanguage(e.target.value)}
                         className="bg-white/10 text-white text-sm px-3 py-2 rounded-lg border border-white/20 outline-none focus:border-orange-500"
@@ -424,6 +430,13 @@ export default function WorkerTBMPage() {
                     <p className="text-xl font-medium text-orange-100 leading-relaxed whitespace-pre-wrap">
                         {translatedText || session.instruction}
                     </p>
+
+                    {translatedPronunciation && (
+                        <div className="mt-4 p-3 bg-orange-500/20 rounded-lg border border-orange-500/30">
+                            <p className="text-xs text-orange-400 uppercase font-black mb-1">Pronunciation (한글 발음)</p>
+                            <p className="text-2xl font-black text-orange-300 tracking-tight">"{translatedPronunciation}"</p>
+                        </div>
+                    )}
 
                     <div className="mt-4 pt-4 border-t border-white/5 flex justify-between items-end">
                         <p className="text-xs text-slate-500">
@@ -477,14 +490,14 @@ export default function WorkerTBMPage() {
                 )}
 
                 {/* 관리자에게 메시지 보내기 버튼 */}
-                <a href="/chat" className="block mt-4">
+                <Link href="/chat" className="block mt-4">
                     <button className="w-full py-4 bg-blue-500/20 hover:bg-blue-500/30 border border-blue-500/50 text-blue-400 rounded-xl font-medium text-lg transition-all flex items-center justify-center gap-2">
                         💬 {userLanguage === 'Vietnamese' ? 'Gửi tin nhắn cho giám đốc' :
                             userLanguage === 'Chinese' ? '向管理员发送消息' :
                                 userLanguage === 'Thai' ? 'ส่งข้อความถึงผู้จัดการ' :
                                     'Send message to manager'}
                     </button>
-                </a>
+                </Link>
             </div>
         </div>
     );

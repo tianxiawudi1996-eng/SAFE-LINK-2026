@@ -1,697 +1,123 @@
-// 다국어 UI 번역 데이터
-// SAFE-LINK 시스템 다국어 지원
+/**
+ * 🌍 SAFE-LINK i18n & Language Mapping Central
+ * 
+ * Rules:
+ * 1. Convert Country Codes (CN, VN) to ISO Codes (zh-CN, vi)
+ * 2. Map to Google Cloud TTS Voice Names
+ * 3. Map to Full Language Names for AI Prompting
+ */
 
-export type LanguageCode = 'ko' | 'zh' | 'vi' | 'th' | 'uz' | 'mn' | 'km' | 'ru' | 'en' | 'np' | 'ph' | 'id' | 'mm' | 'lk' | 'bd';
-
-export interface Translations {
-    // 공통
-    appName: string;
-    loading: string;
-    error: string;
-    success: string;
-    cancel: string;
-    confirm: string;
-    save: string;
-
-    // 로그인/회원가입
-    login: string;
-    signup: string;
-    email: string;
-    password: string;
+export const SUPPORTED_LANGUAGES: Record<string, {
+    iso: string;
+    sttCode: string;
     name: string;
-    selectCountry: string;
-    workerSignup: string;
-    managerSignup: string;
-    noAccount: string;
-    alreadyHaveAccount: string;
-    loginButton: string;
-    signupButton: string;
-
-    // TBM
-    todaySafetyInstruction: string;
-    pleaseSignAfterReview: string;
-    waiting: string;
-    noActiveSession: string;
-    waitingForManager: string;
-    signatureComplete: string;
-    enterName: string;
-    signButton: string;
-    signing: string;
-
-    // 서명 패드
-    electronicSignature: string;
-    pleaseSignBelow: string;
-    contentToConfirm: string;
-    signer: string;
-    signHere: string;
-    clear: string;
-    complete: string;
-    legalNotice: string;
-}
-
-const translations: Record<LanguageCode, Translations> = {
-    ko: {
-        appName: 'SAFE-LINK',
-        loading: '로딩 중...',
-        error: '오류',
-        success: '성공',
-        cancel: '취소',
-        confirm: '확인',
-        save: '저장',
-
-        login: '로그인',
-        signup: '회원가입',
-        email: '이메일',
-        password: '비밀번호',
-        name: '이름',
-        selectCountry: '국가 선택',
-        workerSignup: '근로자 가입',
-        managerSignup: '관리자 가입',
-        noAccount: '계정이 없으신가요?',
-        alreadyHaveAccount: '이미 계정이 있으신가요?',
-        loginButton: '로그인',
-        signupButton: '가입하기',
-
-        todaySafetyInstruction: '오늘의 안전 지시',
-        pleaseSignAfterReview: '내용을 확인하고 서명해주세요.',
-        waiting: '대기 중',
-        noActiveSession: '현재 활성화된 TBM 세션이 없습니다.',
-        waitingForManager: '관리자가 지시사항을 전송하면 여기에 표시됩니다.',
-        signatureComplete: '서명 완료',
-        enterName: '이름을 입력하세요',
-        signButton: '전자서명 하기',
-        signing: '서명 처리 중...',
-
-        electronicSignature: '전자서명',
-        pleaseSignBelow: '아래 영역에 서명해주세요',
-        contentToConfirm: '확인 내용',
-        signer: '서명자',
-        signHere: '여기에 서명하세요',
-        clear: '다시 쓰기',
-        complete: '서명 완료',
-        legalNotice: '본 전자서명은 법적 효력을 가지며, 암호화되어 안전하게 저장됩니다.',
+    flag: string;
+    ttsVoice: { f: string; m: string };
+}> = {
+    'VN': {
+        iso: 'vi',
+        sttCode: 'vi-VN',
+        name: 'Vietnamese',
+        flag: '🇻🇳',
+        ttsVoice: { f: 'vi-VN-Neural2-A', m: 'vi-VN-Neural2-D' }
     },
-
-    zh: {
-        appName: 'SAFE-LINK',
-        loading: '加载中...',
-        error: '错误',
-        success: '成功',
-        cancel: '取消',
-        confirm: '确认',
-        save: '保存',
-
-        login: '登录',
-        signup: '注册',
-        email: '电子邮箱',
-        password: '密码',
-        name: '姓名',
-        selectCountry: '选择国家',
-        workerSignup: '工人注册',
-        managerSignup: '管理员注册',
-        noAccount: '还没有账号?',
-        alreadyHaveAccount: '已有账号?',
-        loginButton: '登录',
-        signupButton: '注册',
-
-        todaySafetyInstruction: '今日安全指示',
-        pleaseSignAfterReview: '请确认内容后签名。',
-        waiting: '等待中',
-        noActiveSession: '目前没有活动的TBM会议。',
-        waitingForManager: '管理员发送指示后将在此显示。',
-        signatureComplete: '签名完成',
-        enterName: '请输入姓名',
-        signButton: '电子签名',
-        signing: '签名处理中...',
-
-        electronicSignature: '电子签名',
-        pleaseSignBelow: '请在下方区域签名',
-        contentToConfirm: '确认内容',
-        signer: '签名人',
-        signHere: '在此签名',
-        clear: '重新签名',
-        complete: '完成签名',
-        legalNotice: '本电子签名具有法律效力，将被加密安全存储。',
+    'CN': {
+        iso: 'zh-CN',
+        sttCode: 'zh-CN',
+        name: 'Chinese (Simplified)',
+        flag: '🇨🇳',
+        ttsVoice: { f: 'cmn-CN-Neural2-F', m: 'cmn-CN-Neural2-C' }
     },
-
-    vi: {
-        appName: 'SAFE-LINK',
-        loading: 'Đang tải...',
-        error: 'Lỗi',
-        success: 'Thành công',
-        cancel: 'Hủy',
-        confirm: 'Xác nhận',
-        save: 'Lưu',
-
-        login: 'Đăng nhập',
-        signup: 'Đăng ký',
-        email: 'Email',
-        password: 'Mật khẩu',
-        name: 'Họ tên',
-        selectCountry: 'Chọn quốc gia',
-        workerSignup: 'Đăng ký công nhân',
-        managerSignup: 'Đăng ký quản lý',
-        noAccount: 'Chưa có tài khoản?',
-        alreadyHaveAccount: 'Đã có tài khoản?',
-        loginButton: 'Đăng nhập',
-        signupButton: 'Đăng ký',
-
-        todaySafetyInstruction: 'Hướng dẫn an toàn hôm nay',
-        pleaseSignAfterReview: 'Vui lòng xác nhận nội dung và ký tên.',
-        waiting: 'Đang chờ',
-        noActiveSession: 'Hiện không có phiên TBM nào đang hoạt động.',
-        waitingForManager: 'Hướng dẫn sẽ hiển thị khi quản lý gửi.',
-        signatureComplete: 'Đã ký xong',
-        enterName: 'Nhập họ tên của bạn',
-        signButton: 'Ký điện tử',
-        signing: 'Đang xử lý chữ ký...',
-
-        electronicSignature: 'Chữ ký điện tử',
-        pleaseSignBelow: 'Vui lòng ký vào ô bên dưới',
-        contentToConfirm: 'Nội dung xác nhận',
-        signer: 'Người ký',
-        signHere: 'Ký tại đây',
-        clear: 'Ký lại',
-        complete: 'Hoàn thành',
-        legalNotice: 'Chữ ký điện tử này có hiệu lực pháp lý và được mã hóa lưu trữ an toàn.',
+    'UZ': {
+        iso: 'uz',
+        sttCode: 'uz-UZ',
+        name: 'Uzbek',
+        flag: '🇺🇿',
+        ttsVoice: { f: 'uz-UZ-Wavenet-A', m: 'uz-UZ-Wavenet-B' }
     },
-
-    th: {
-        appName: 'SAFE-LINK',
-        loading: 'กำลังโหลด...',
-        error: 'ข้อผิดพลาด',
-        success: 'สำเร็จ',
-        cancel: 'ยกเลิก',
-        confirm: 'ยืนยัน',
-        save: 'บันทึก',
-
-        login: 'เข้าสู่ระบบ',
-        signup: 'สมัครสมาชิก',
-        email: 'อีเมล',
-        password: 'รหัสผ่าน',
-        name: 'ชื่อ',
-        selectCountry: 'เลือกประเทศ',
-        workerSignup: 'สมัครคนงาน',
-        managerSignup: 'สมัครผู้จัดการ',
-        noAccount: 'ยังไม่มีบัญชี?',
-        alreadyHaveAccount: 'มีบัญชีอยู่แล้ว?',
-        loginButton: 'เข้าสู่ระบบ',
-        signupButton: 'สมัคร',
-
-        todaySafetyInstruction: 'คำแนะนำความปลอดภัยวันนี้',
-        pleaseSignAfterReview: 'กรุณาตรวจสอบและลงนาม',
-        waiting: 'กำลังรอ',
-        noActiveSession: 'ไม่มีเซสชัน TBM ที่ใช้งานอยู่',
-        waitingForManager: 'คำแนะนำจะแสดงเมื่อผู้จัดการส่ง',
-        signatureComplete: 'ลงนามเสร็จสิ้น',
-        enterName: 'กรุณาใส่ชื่อ',
-        signButton: 'ลงนามอิเล็กทรอนิกส์',
-        signing: 'กำลังดำเนินการลงนาม...',
-
-        electronicSignature: 'ลายเซ็นอิเล็กทรอนิกส์',
-        pleaseSignBelow: 'กรุณาลงนามด้านล่าง',
-        contentToConfirm: 'เนื้อหาที่ต้องยืนยัน',
-        signer: 'ผู้ลงนาม',
-        signHere: 'ลงนามที่นี่',
-        clear: 'ลงนามใหม่',
-        complete: 'เสร็จสิ้น',
-        legalNotice: 'ลายเซ็นอิเล็กทรอนิกส์นี้มีผลทางกฎหมายและเก็บรักษาอย่างปลอดภัย',
+    'ID': {
+        iso: 'id',
+        sttCode: 'id-ID',
+        name: 'Indonesian',
+        flag: '🇮🇩',
+        ttsVoice: { f: 'id-ID-Wavenet-A', m: 'id-ID-Wavenet-C' }
     },
-
-    uz: {
-        appName: 'SAFE-LINK',
-        loading: 'Yuklanmoqda...',
-        error: 'Xato',
-        success: 'Muvaffaqiyat',
-        cancel: 'Bekor qilish',
-        confirm: 'Tasdiqlash',
-        save: 'Saqlash',
-
-        login: 'Kirish',
-        signup: "Ro'yxatdan o'tish",
-        email: 'Elektron pochta',
-        password: 'Parol',
-        name: 'Ism',
-        selectCountry: 'Davlatni tanlang',
-        workerSignup: "Ishchi ro'yxatdan o'tish",
-        managerSignup: "Menejer ro'yxatdan o'tish",
-        noAccount: "Hisobingiz yo'qmi?",
-        alreadyHaveAccount: 'Hisobingiz bormi?',
-        loginButton: 'Kirish',
-        signupButton: "Ro'yxatdan o'tish",
-
-        todaySafetyInstruction: 'Bugungi xavfsizlik ko\'rsatmasi',
-        pleaseSignAfterReview: "Iltimos, ko'rib chiqing va imzolang.",
-        waiting: 'Kutilmoqda',
-        noActiveSession: "Faol TBM sessiyasi yo'q.",
-        waitingForManager: "Menejer ko'rsatma yuborganida bu yerda ko'rinadi.",
-        signatureComplete: 'Imzo tugallandi',
-        enterName: 'Ismingizni kiriting',
-        signButton: 'Elektron imzo',
-        signing: 'Imzo qo\'yilmoqda...',
-
-        electronicSignature: 'Elektron imzo',
-        pleaseSignBelow: "Quyidagi maydonga imzo qo'ying",
-        contentToConfirm: 'Tasdiqlash mazmuni',
-        signer: 'Imzolovchi',
-        signHere: "Bu yerga imzo qo'ying",
-        clear: 'Qayta imzolash',
-        complete: 'Tugatish',
-        legalNotice: "Bu elektron imzo qonuniy kuchga ega va xavfsiz saqlanadi.",
+    'PH': {
+        iso: 'tl',
+        sttCode: 'fil-PH',
+        name: 'Tagalog',
+        flag: '🇵🇭',
+        ttsVoice: { f: 'fil-PH-Wavenet-A', m: 'fil-PH-Wavenet-C' }
     },
-
-    mn: {
-        appName: 'SAFE-LINK',
-        loading: 'Ачааллаж байна...',
-        error: 'Алдаа',
-        success: 'Амжилттай',
-        cancel: 'Цуцлах',
-        confirm: 'Баталгаажуулах',
-        save: 'Хадгалах',
-
-        login: 'Нэвтрэх',
-        signup: 'Бүртгүүлэх',
-        email: 'Имэйл',
-        password: 'Нууц үг',
-        name: 'Нэр',
-        selectCountry: 'Улсаа сонгоно уу',
-        workerSignup: 'Ажилтан бүртгүүлэх',
-        managerSignup: 'Менежер бүртгүүлэх',
-        noAccount: 'Бүртгэлгүй юу?',
-        alreadyHaveAccount: 'Бүртгэлтэй юу?',
-        loginButton: 'Нэвтрэх',
-        signupButton: 'Бүртгүүлэх',
-
-        todaySafetyInstruction: 'Өнөөдрийн аюулгүйн заавар',
-        pleaseSignAfterReview: 'Агуулгыг шалгаж, гарын үсэг зурна уу.',
-        waiting: 'Хүлээж байна',
-        noActiveSession: 'Идэвхтэй TBM хуралдаан байхгүй байна.',
-        waitingForManager: 'Менежер заавар илгээхэд энд харагдана.',
-        signatureComplete: 'Гарын үсэг зурсан',
-        enterName: 'Нэрээ оруулна уу',
-        signButton: 'Цахим гарын үсэг',
-        signing: 'Гарын үсэг зурж байна...',
-
-        electronicSignature: 'Цахим гарын үсэг',
-        pleaseSignBelow: 'Доорх хэсэгт гарын үсэг зурна уу',
-        contentToConfirm: 'Баталгаажуулах агуулга',
-        signer: 'Гарын үсэг зурагч',
-        signHere: 'Энд гарын үсэг зурна уу',
-        clear: 'Дахин зурах',
-        complete: 'Дуусгах',
-        legalNotice: 'Энэ цахим гарын үсэг хуулийн хүчинтэй бөгөөд аюулгүй хадгалагдана.',
+    'KH': {
+        iso: 'km',
+        sttCode: 'km-KH',
+        name: 'Khmer',
+        flag: '🇰🇭',
+        ttsVoice: { f: 'km-KH-Standard-A', m: 'km-KH-Standard-B' }
     },
-
-    km: {
-        appName: 'SAFE-LINK',
-        loading: 'កំពុងផ្ទុក...',
-        error: 'កំហុស',
-        success: 'ជោគជ័យ',
-        cancel: 'បោះបង់',
-        confirm: 'បញ្ជាក់',
-        save: 'រក្សាទុក',
-
-        login: 'ចូល',
-        signup: 'ចុះឈ្មោះ',
-        email: 'អ៊ីមែល',
-        password: 'ពាក្យសម្ងាត់',
-        name: 'ឈ្មោះ',
-        selectCountry: 'ជ្រើសរើសប្រទេស',
-        workerSignup: 'ចុះឈ្មោះកម្មករ',
-        managerSignup: 'ចុះឈ្មោះអ្នកគ្រប់គ្រង',
-        noAccount: 'មិនមានគណនីមែនទេ?',
-        alreadyHaveAccount: 'មានគណនីរួចហើយ?',
-        loginButton: 'ចូល',
-        signupButton: 'ចុះឈ្មោះ',
-
-        todaySafetyInstruction: 'ការណែនាំសុវត្ថិភាពថ្ងៃនេះ',
-        pleaseSignAfterReview: 'សូមពិនិត្យមើល និងចុះហត្ថលេខា។',
-        waiting: 'កំពុងរង់ចាំ',
-        noActiveSession: 'គ្មានវគ្គ TBM សកម្មទេ។',
-        waitingForManager: 'ការណែនាំនឹងបង្ហាញនៅពេលអ្នកគ្រប់គ្រងផ្ញើ។',
-        signatureComplete: 'ចុះហត្ថលេខារួចរាល់',
-        enterName: 'សូមបញ្ចូលឈ្មោះ',
-        signButton: 'ហត្ថលេខាអេឡិចត្រូនិក',
-        signing: 'កំពុងដំណើរការហត្ថលេខា...',
-
-        electronicSignature: 'ហត្ថលេខាអេឡិចត្រូនិក',
-        pleaseSignBelow: 'សូមចុះហត្ថលេខាខាងក្រោម',
-        contentToConfirm: 'ខ្លឹមសារដែលត្រូវបញ្ជាក់',
-        signer: 'អ្នកចុះហត្ថលេខា',
-        signHere: 'ចុះហត្ថលេខានៅទីនេះ',
-        clear: 'ចុះហត្ថលេខាឡើងវិញ',
-        complete: 'បញ្ចប់',
-        legalNotice: 'ហត្ថលេខាអេឡិចត្រូនិកនេះមានសុពលភាពផ្លូវច្បាប់ និងរក្សាទុកដោយសុវត្ថិភាព។',
+    'MN': {
+        iso: 'mn',
+        sttCode: 'mn-MN',
+        name: 'Mongolian',
+        flag: '🇲🇳',
+        ttsVoice: { f: 'mn-MN-Standard-A', m: 'mn-MN-Standard-A' }
     },
-
-    ru: {
-        appName: 'SAFE-LINK',
-        loading: 'Загрузка...',
-        error: 'Ошибка',
-        success: 'Успех',
-        cancel: 'Отмена',
-        confirm: 'Подтвердить',
-        save: 'Сохранить',
-
-        login: 'Вход',
-        signup: 'Регистрация',
-        email: 'Эл. почта',
-        password: 'Пароль',
-        name: 'Имя',
-        selectCountry: 'Выберите страну',
-        workerSignup: 'Регистрация рабочего',
-        managerSignup: 'Регистрация менеджера',
-        noAccount: 'Нет аккаунта?',
-        alreadyHaveAccount: 'Уже есть аккаунт?',
-        loginButton: 'Войти',
-        signupButton: 'Зарегистрироваться',
-
-        todaySafetyInstruction: 'Инструкция по безопасности на сегодня',
-        pleaseSignAfterReview: 'Пожалуйста, проверьте и подпишите.',
-        waiting: 'Ожидание',
-        noActiveSession: 'Нет активной сессии TBM.',
-        waitingForManager: 'Инструкции появятся когда менеджер их отправит.',
-        signatureComplete: 'Подпись завершена',
-        enterName: 'Введите ваше имя',
-        signButton: 'Электронная подпись',
-        signing: 'Подписание...',
-
-        electronicSignature: 'Электронная подпись',
-        pleaseSignBelow: 'Пожалуйста, распишитесь ниже',
-        contentToConfirm: 'Содержание для подтверждения',
-        signer: 'Подписант',
-        signHere: 'Распишитесь здесь',
-        clear: 'Подписать заново',
-        complete: 'Завершить',
-        legalNotice: 'Эта электронная подпись имеет юридическую силу и надежно хранится.',
+    'TH': {
+        iso: 'th',
+        sttCode: 'th-TH',
+        name: 'Thai',
+        flag: '🇹🇭',
+        ttsVoice: { f: 'th-TH-Neural2-C', m: 'th-TH-Standard-A' }
     },
-
-    en: {
-        appName: 'SAFE-LINK',
-        loading: 'Loading...',
-        error: 'Error',
-        success: 'Success',
-        cancel: 'Cancel',
-        confirm: 'Confirm',
-        save: 'Save',
-
-        login: 'Login',
-        signup: 'Sign Up',
-        email: 'Email',
-        password: 'Password',
-        name: 'Name',
-        selectCountry: 'Select Country',
-        workerSignup: 'Worker Sign Up',
-        managerSignup: 'Manager Sign Up',
-        noAccount: "Don't have an account?",
-        alreadyHaveAccount: 'Already have an account?',
-        loginButton: 'Login',
-        signupButton: 'Sign Up',
-
-        todaySafetyInstruction: "Today's Safety Instruction",
-        pleaseSignAfterReview: 'Please review and sign.',
-        waiting: 'Waiting',
-        noActiveSession: 'No active TBM session.',
-        waitingForManager: 'Instructions will appear when manager sends them.',
-        signatureComplete: 'Signature Complete',
-        enterName: 'Enter your name',
-        signButton: 'Electronic Signature',
-        signing: 'Processing signature...',
-
-        electronicSignature: 'Electronic Signature',
-        pleaseSignBelow: 'Please sign below',
-        contentToConfirm: 'Content to confirm',
-        signer: 'Signer',
-        signHere: 'Sign here',
-        clear: 'Clear',
-        complete: 'Complete',
-        legalNotice: 'This electronic signature is legally binding and securely stored.',
+    'RU': {
+        iso: 'ru',
+        sttCode: 'ru-RU',
+        name: 'Russian',
+        flag: '🇷🇺',
+        ttsVoice: { f: 'ru-RU-Wavenet-A', m: 'ru-RU-Wavenet-D' }
     },
-
-    // 추가 언어들 (기본 영어 기반)
-    np: {
-        appName: 'SAFE-LINK',
-        loading: 'लोड हुँदैछ...',
-        error: 'त्रुटि',
-        success: 'सफलता',
-        cancel: 'रद्द गर्नुहोस्',
-        confirm: 'पुष्टि गर्नुहोस्',
-        save: 'सेभ गर्नुहोस्',
-        login: 'लगइन',
-        signup: 'साइन अप',
-        email: 'इमेल',
-        password: 'पासवर्ड',
-        name: 'नाम',
-        selectCountry: 'देश छान्नुहोस्',
-        workerSignup: 'कामदार साइन अप',
-        managerSignup: 'प्रबन्धक साइन अप',
-        noAccount: 'खाता छैन?',
-        alreadyHaveAccount: 'पहिले नै खाता छ?',
-        loginButton: 'लगइन',
-        signupButton: 'साइन अप',
-        todaySafetyInstruction: 'आजको सुरक्षा निर्देशन',
-        pleaseSignAfterReview: 'कृपया समीक्षा गर्नुहोस् र हस्ताक्षर गर्नुहोस्।',
-        waiting: 'प्रतीक्षा गर्दै',
-        noActiveSession: 'कुनै सक्रिय TBM सत्र छैन।',
-        waitingForManager: 'प्रबन्धकले पठाउँदा निर्देशनहरू देखिनेछन्।',
-        signatureComplete: 'हस्ताक्षर पूरा भयो',
-        enterName: 'तपाईंको नाम प्रविष्ट गर्नुहोस्',
-        signButton: 'इलेक्ट्रोनिक हस्ताक्षर',
-        signing: 'हस्ताक्षर प्रशोधन गर्दै...',
-        electronicSignature: 'इलेक्ट्रोनिक हस्ताक्षर',
-        pleaseSignBelow: 'कृपया तल हस्ताक्षर गर्नुहोस्',
-        contentToConfirm: 'पुष्टि गर्ने सामग्री',
-        signer: 'हस्ताक्षरकर्ता',
-        signHere: 'यहाँ हस्ताक्षर गर्नुहोस्',
-        clear: 'खाली गर्नुहोस्',
-        complete: 'पूरा गर्नुहोस्',
-        legalNotice: 'यो इलेक्ट्रोनिक हस्ताक्षर कानुनी रूपमा बाध्यकारी छ।',
+    'US': {
+        iso: 'en',
+        sttCode: 'en-US',
+        name: 'English',
+        flag: '🇺🇸',
+        ttsVoice: { f: 'en-US-Neural2-F', m: 'en-US-Neural2-J' }
     },
-
-    ph: {
-        appName: 'SAFE-LINK',
-        loading: 'Naglo-load...',
-        error: 'Error',
-        success: 'Tagumpay',
-        cancel: 'Kanselahin',
-        confirm: 'Kumpirmahin',
-        save: 'I-save',
-        login: 'Mag-login',
-        signup: 'Mag-sign up',
-        email: 'Email',
-        password: 'Password',
-        name: 'Pangalan',
-        selectCountry: 'Pumili ng bansa',
-        workerSignup: 'Worker Sign Up',
-        managerSignup: 'Manager Sign Up',
-        noAccount: 'Walang account?',
-        alreadyHaveAccount: 'May account na?',
-        loginButton: 'Mag-login',
-        signupButton: 'Mag-sign up',
-        todaySafetyInstruction: 'Tagubilin sa Kaligtasan Ngayon',
-        pleaseSignAfterReview: 'Mangyaring suriin at lagdaan.',
-        waiting: 'Naghihintay',
-        noActiveSession: 'Walang aktibong TBM session.',
-        waitingForManager: 'Lalabas ang tagubilin kapag ipinadala ng manager.',
-        signatureComplete: 'Kumpleto na ang lagda',
-        enterName: 'Ilagay ang iyong pangalan',
-        signButton: 'Electronic na Lagda',
-        signing: 'Pinoproseso ang lagda...',
-        electronicSignature: 'Electronic na Lagda',
-        pleaseSignBelow: 'Mangyaring lagdaan sa ibaba',
-        contentToConfirm: 'Nilalaman na kukumpirmahin',
-        signer: 'Tagalagda',
-        signHere: 'Lagdaan dito',
-        clear: 'I-clear',
-        complete: 'Kumpleto',
-        legalNotice: 'Legal na may bisa ang electronic signature na ito.',
-    },
-
-    id: {
-        appName: 'SAFE-LINK',
-        loading: 'Memuat...',
-        error: 'Kesalahan',
-        success: 'Berhasil',
-        cancel: 'Batal',
-        confirm: 'Konfirmasi',
-        save: 'Simpan',
-        login: 'Masuk',
-        signup: 'Daftar',
-        email: 'Email',
-        password: 'Kata Sandi',
-        name: 'Nama',
-        selectCountry: 'Pilih Negara',
-        workerSignup: 'Pendaftaran Pekerja',
-        managerSignup: 'Pendaftaran Manajer',
-        noAccount: 'Belum punya akun?',
-        alreadyHaveAccount: 'Sudah punya akun?',
-        loginButton: 'Masuk',
-        signupButton: 'Daftar',
-        todaySafetyInstruction: 'Instruksi Keselamatan Hari Ini',
-        pleaseSignAfterReview: 'Silakan periksa dan tanda tangani.',
-        waiting: 'Menunggu',
-        noActiveSession: 'Tidak ada sesi TBM aktif.',
-        waitingForManager: 'Instruksi akan muncul saat manajer mengirimnya.',
-        signatureComplete: 'Tanda Tangan Selesai',
-        enterName: 'Masukkan nama Anda',
-        signButton: 'Tanda Tangan Elektronik',
-        signing: 'Memproses tanda tangan...',
-        electronicSignature: 'Tanda Tangan Elektronik',
-        pleaseSignBelow: 'Silakan tanda tangan di bawah',
-        contentToConfirm: 'Konten untuk dikonfirmasi',
-        signer: 'Penanda tangan',
-        signHere: 'Tanda tangan di sini',
-        clear: 'Hapus',
-        complete: 'Selesai',
-        legalNotice: 'Tanda tangan elektronik ini mengikat secara hukum.',
-    },
-
-    mm: {
-        appName: 'SAFE-LINK',
-        loading: 'ဖွင့်နေသည်...',
-        error: 'အမှား',
-        success: 'အောင်မြင်သည်',
-        cancel: 'ပယ်ဖျက်',
-        confirm: 'အတည်ပြု',
-        save: 'သိမ်းဆည်း',
-        login: 'ဝင်ရောက်',
-        signup: 'စာရင်းသွင်း',
-        email: 'အီးမေးလ်',
-        password: 'စကားဝှက်',
-        name: 'နာမည်',
-        selectCountry: 'နိုင်ငံရွေးချယ်ပါ',
-        workerSignup: 'အလုပ်သမားစာရင်းသွင်းခြင်း',
-        managerSignup: 'မန်နေဂျာစာရင်းသွင်းခြင်း',
-        noAccount: 'အကောင့်မရှိဘူးလား?',
-        alreadyHaveAccount: 'အကောင့်ရှိပြီးသားလား?',
-        loginButton: 'ဝင်ရောက်',
-        signupButton: 'စာရင်းသွင်း',
-        todaySafetyInstruction: 'ယနေ့ဘေးကင်းရေးညွှန်ကြားချက်',
-        pleaseSignAfterReview: 'ကျေးဇူးပြု၍ စစ်ဆေးပြီး လက်မှတ်ထိုးပါ။',
-        waiting: 'စောင့်ဆိုင်းနေသည်',
-        noActiveSession: 'လက်ရှိ TBM session မရှိပါ။',
-        waitingForManager: 'မန်နေဂျာပို့လိုက်သောအခါ ညွှန်ကြားချက်များပေါ်လာပါမည်။',
-        signatureComplete: 'လက်မှတ်ထိုးပြီးပါပြီ',
-        enterName: 'သင့်နာမည်ထည့်ပါ',
-        signButton: 'အီလက်ထရောနစ်လက်မှတ်',
-        signing: 'လက်မှတ်ထိုးနေသည်...',
-        electronicSignature: 'အီလက်ထရောနစ်လက်မှတ်',
-        pleaseSignBelow: 'အောက်တွင် လက်မှတ်ထိုးပါ',
-        contentToConfirm: 'အတည်ပြုရန် အကြောင်းအရာ',
-        signer: 'လက်မှတ်ထိုးသူ',
-        signHere: 'ဒီမှာ လက်မှတ်ထိုးပါ',
-        clear: 'ရှင်းလင်း',
-        complete: 'ပြီးဆုံး',
-        legalNotice: 'ဤအီလက်ထရောနစ်လက်မှတ်သည် ဥပဒေအရ တရားဝင်ပါသည်။',
-    },
-
-    lk: {
-        appName: 'SAFE-LINK',
-        loading: 'පූරණය වෙමින්...',
-        error: 'දෝෂය',
-        success: 'සාර්ථකයි',
-        cancel: 'අවලංගු කරන්න',
-        confirm: 'තහවුරු කරන්න',
-        save: 'සුරකින්න',
-        login: 'පිවිසෙන්න',
-        signup: 'ලියාපදිංචි වන්න',
-        email: 'ඊමේල්',
-        password: 'මුරපදය',
-        name: 'නම',
-        selectCountry: 'රට තෝරන්න',
-        workerSignup: 'කම්කරු ලියාපදිංචිය',
-        managerSignup: 'කළමනාකරු ලියාපදිංචිය',
-        noAccount: 'ගිණුමක් නැද්ද?',
-        alreadyHaveAccount: 'දැනටමත් ගිණුමක් තිබේද?',
-        loginButton: 'පිවිසෙන්න',
-        signupButton: 'ලියාපදිංචි වන්න',
-        todaySafetyInstruction: 'අද ආරක්ෂක උපදෙස්',
-        pleaseSignAfterReview: 'කරුණාකර සමාලෝචනය කර අත්සන් කරන්න.',
-        waiting: 'බලා සිටිමින්',
-        noActiveSession: 'ක්‍රියාකාරී TBM සැසියක් නැත.',
-        waitingForManager: 'කළමනාකරු යවන විට උපදෙස් පෙන්වනු ඇත.',
-        signatureComplete: 'අත්සන සම්පූර්ණයි',
-        enterName: 'ඔබේ නම ඇතුළත් කරන්න',
-        signButton: 'ඉලෙක්ට්‍රොනික අත්සන',
-        signing: 'අත්සන සකසමින්...',
-        electronicSignature: 'ඉලෙක්ට්‍රොනික අත්සන',
-        pleaseSignBelow: 'කරුණාකර පහත අත්සන් කරන්න',
-        contentToConfirm: 'තහවුරු කළ යුතු අන්තර්ගතය',
-        signer: 'අත්සන් කරන්නා',
-        signHere: 'මෙහි අත්සන් කරන්න',
-        clear: 'හිස් කරන්න',
-        complete: 'සම්පූර්ණයි',
-        legalNotice: 'මෙම ඉලෙක්ට්‍රොනික අත්සන නීත්‍යානුකූලව බැඳීමකි.',
-    },
-
-    bd: {
-        appName: 'SAFE-LINK',
-        loading: 'লোড হচ্ছে...',
-        error: 'ত্রুটি',
-        success: 'সফল',
-        cancel: 'বাতিল',
-        confirm: 'নিশ্চিত করুন',
-        save: 'সংরক্ষণ করুন',
-        login: 'লগইন',
-        signup: 'সাইন আপ',
-        email: 'ইমেইল',
-        password: 'পাসওয়ার্ড',
-        name: 'নাম',
-        selectCountry: 'দেশ নির্বাচন করুন',
-        workerSignup: 'শ্রমিক সাইন আপ',
-        managerSignup: 'ম্যানেজার সাইন আপ',
-        noAccount: 'অ্যাকাউন্ট নেই?',
-        alreadyHaveAccount: 'ইতিমধ্যে অ্যাকাউন্ট আছে?',
-        loginButton: 'লগইন',
-        signupButton: 'সাইন আপ',
-        todaySafetyInstruction: 'আজকের নিরাপত্তা নির্দেশনা',
-        pleaseSignAfterReview: 'অনুগ্রহ করে পর্যালোচনা করুন এবং স্বাক্ষর করুন।',
-        waiting: 'অপেক্ষা করছে',
-        noActiveSession: 'কোন সক্রিয় TBM সেশন নেই।',
-        waitingForManager: 'ম্যানেজার পাঠালে নির্দেশনা দেখাবে।',
-        signatureComplete: 'স্বাক্ষর সম্পূর্ণ',
-        enterName: 'আপনার নাম লিখুন',
-        signButton: 'ইলেকট্রনিক স্বাক্ষর',
-        signing: 'স্বাক্ষর প্রক্রিয়াকরণ হচ্ছে...',
-        electronicSignature: 'ইলেকট্রনিক স্বাক্ষর',
-        pleaseSignBelow: 'অনুগ্রহ করে নীচে স্বাক্ষর করুন',
-        contentToConfirm: 'নিশ্চিত করার বিষয়বস্তু',
-        signer: 'স্বাক্ষরকারী',
-        signHere: 'এখানে স্বাক্ষর করুন',
-        clear: 'মুছুন',
-        complete: 'সম্পূর্ণ',
-        legalNotice: 'এই ইলেকট্রনিক স্বাক্ষর আইনত বাধ্যতামূলক।',
-    },
+    'KR': {
+        iso: 'ko',
+        sttCode: 'ko-KR',
+        name: 'Korean',
+        flag: '🇰🇷',
+        ttsVoice: { f: 'ko-KR-Neural2-A', m: 'ko-KR-Neural2-C' }
+    }
 };
 
-// 국가 코드 → 언어 코드 매핑
-export const countryToLanguage: Record<string, LanguageCode> = {
-    'CN': 'zh',
-    'VN': 'vi',
-    'TH': 'th',
-    'NP': 'np',
-    'KH': 'km',
-    'UZ': 'uz',
-    'PH': 'ph',
-    'ID': 'id',
-    'MM': 'mm',
-    'MN': 'mn',
-    'LK': 'lk',
-    'BD': 'bd',
-    'EN': 'en',
-    'RU': 'ru',
-    'KR': 'ko',
-};
+/**
+ * Normalizes any input language string (code, name, iso) to our internal Country Code
+ */
+export function normalizeLanguageCode(input: string): string {
+    if (!input) return 'US';
+    const up = input.trim().toUpperCase();
+    if (SUPPORTED_LANGUAGES[up]) return up;
 
-// 번역 가져오기 함수
-export function getTranslations(lang: LanguageCode): Translations {
-    return translations[lang] || translations.en;
+    // Check by ISO or name
+    for (const [code, data] of Object.entries(SUPPORTED_LANGUAGES)) {
+        if (data.iso.toUpperCase() === up || data.name.toUpperCase() === up || data.sttCode.toUpperCase() === up) return code;
+    }
+
+    // Check if input is a partial like 'vi-VN' -> 'VN'
+    if (up.includes('-')) {
+        const parts = up.split('-');
+        if (SUPPORTED_LANGUAGES[parts[1]]) return parts[1];
+        if (parts[0] === 'ZH') return 'CN';
+        if (parts[0] === 'VI') return 'VN';
+    }
+
+    return 'US';
 }
 
-// 국가 코드로 번역 가져오기
-export function getTranslationsByCountry(countryCode: string): Translations {
-    const langCode = countryToLanguage[countryCode] || 'en';
-    return getTranslations(langCode);
+export function getLanguageData(input: string) {
+    const code = normalizeLanguageCode(input);
+    return SUPPORTED_LANGUAGES[code];
 }
-
-export default translations;

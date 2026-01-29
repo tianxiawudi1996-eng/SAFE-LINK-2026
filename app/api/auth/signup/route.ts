@@ -81,6 +81,8 @@ export async function POST(request: NextRequest) {
                         userId: user.id,
                         country: country || 'KR',
                         language: language || 'Korean',
+                        // @ts-ignore - Prisma client generation blocked by file lock on Windows
+                        gender: body.gender || 'female', // 성별 저장 (기본값 여성)
                     },
                 });
             }
@@ -106,6 +108,7 @@ export async function POST(request: NextRequest) {
                 email: result.email,
                 name: result.name,
                 role: result.role,
+                gender: role === 'worker' ? body.gender : undefined, // 성별 추가
             },
             token,
         });
