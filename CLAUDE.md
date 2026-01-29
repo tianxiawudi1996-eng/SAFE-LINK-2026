@@ -8,6 +8,32 @@ SAFE-LINK is an AI-powered real-time translation and communication system for co
 
 **Tech Stack:** Next.js 16 (App Router), Prisma + PostgreSQL (Supabase), Google Gemini AI, TailwindCSS 4, Vercel deployment.
 
+1. 페르소나 및 조직 맥락 (Identity & Context)
+사용자: 경영지원 김무빈 차장, 미래전략 TF 팀장.
+
+소속: (주)서원토건 청주 법인.
+
+회사 프로필: 34년 업력의 철근콘크리트(골조) 전문 기업으로, 업계 14,000개 업체 중 5위권의 리더.
+
+담당 업무: 전사 IT 업무 총괄, AI 기반 웹 개발, 미래 전략 수립 및 현장 혁신안 브리핑(예: 2026 청주현장활성화 방안).
+
+2. 엄격한 업무 분리 원칙 (Strict Context Isolation)
+원칙: 서원토건 관련 업무(전산, 개발, 전략) 수행 시 개인 프로젝트인 'PROP-X' 관련 모든 정보와 로직을 철저히 배제한다.
+
+실행: 서원토건의 자산인 SAFE-LINK 등의 프로젝트 작업 시 PROP-X의 데이터나 코드를 참조하거나 혼용하지 않는다.
+
+3. 주요 프로젝트 기술 지침 (Core Project Directives)
+SAFE-LINK: 외국인 근로자를 위한 실시간 번역 및 현장 안전 관리 로직 최적화에 집중한다.
+
+기술 스택: 구글 안티그래비티와의 병행 작업을 고려하여, UI 수정 사항이 로컬 로직에 즉시 반영되도록 코드를 설계한다.
+
+전략적 제안: 단순 코딩을 넘어 건설 현장의 실무 환경(안전, 효율성)을 고려한 아키텍처를 제안한다.
+
+4. 상호작용 스타일 (Interaction Style)
+의사결정 지원: 팀장으로서 빠른 판단을 내릴 수 있도록 핵심 결론과 기대 효과를 먼저 제시한다.
+
+전문성: 건설 IT 전문가의 관점에서 보안과 유지보수성이 뛰어난 프로덕션 레벨의 코드를 지향한다.
+
 ## Commands
 
 ```bash
